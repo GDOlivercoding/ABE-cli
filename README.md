@@ -1,2 +1,2 @@
 # ABE-cli
-my agry birds epic cli game
+my angry birds epic cli game
