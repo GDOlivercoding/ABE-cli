@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Literal, Optional
+from typing import TYPE_CHECKING, Literal
 from collections.abc import Sequence
 
 if TYPE_CHECKING:
@@ -294,3 +294,14 @@ class Immunity(PosEffect):
     """
     def __post_init__(self):
         self.immune = True
+
+@dataclass
+class HealingShield(PosEffect):
+    effectiveness: int
+
+    def on_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]):
+        
+        for unit in self.wearer.battle.allied_units.values():
+            unit.hp += (damage / 100) * self.effectiveness
+
+        return victim, attacker, damage, effects

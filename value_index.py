@@ -5,7 +5,7 @@ import random
 
 from typing import TypedDict, TYPE_CHECKING
 from effects import ForceTarget, Shield, ShockShield, Effect, DamageDebuff, Knock
-from AD import red, chuck, bomb, blues, PercDmgObject
+from AD import red, chuck, matilda, bomb, blues, PercDmgObject
 
 if TYPE_CHECKING:
     from battle import Ally, View
@@ -168,5 +168,17 @@ TABLE = {
             }
         },
         "chili": chuck_chili
+    },
+    "matilda": {
+        "cleric": {
+            "attack": {
+                "name": "Healing Strike",
+                "damage": matilda % 110,
+                "targets": Target.single,
+                "effects": no_effects,
+                "flags": {}
+            },
+            "passive": {}
+        }
     }
 }

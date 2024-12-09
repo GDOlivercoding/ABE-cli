@@ -46,28 +46,6 @@ ex.:
     ...
 """
 
-    battle = \
-"""
-command battle
-
-arguments: None
-
-usage: battle
-
-description:
-    show all allies, enemies, their names and health bars
-    
-example output:
-
-    ---- ALLIES ------
-
-    red - 200/200
-
-    ---- ENEMIES ------
-
-    pig - 2000/2000
-"""
-
     battle_interface = Table(title="Commands for the prebattle interface")
 
     battle_interface.add_column("Command name")

@@ -24,7 +24,7 @@ def attack_wrapper(self: Ally, target: Enemy):
     attack = TABLE[self.name][self.clsname]["attack"]
     battle = self.battle
 
-    damage: int = attack["damage"]
+    damage: int = attack["damage"].damage
     targets: Target = attack["targets"]
     effects: Sequence[Effect] = attack["effects"](self, target)
     flags: dict = attack["flags"]
@@ -38,7 +38,7 @@ def attack_wrapper(self: Ally, target: Enemy):
             if "slice" in flags:
                 # now we use damage as the sole purpose
                 # of telling the user how much damage they dealt in total
-                damage = 0
+                total_damage = 0
 
                 slice = flags["slice"]
                 
@@ -52,7 +52,7 @@ def attack_wrapper(self: Ally, target: Enemy):
                         )
 
                     target.hp -= sliced
-                    damage += sliced
+                    total_damage += sliced
             else:
                 for effect in target.effects.values():
                     target, self, damage, effects = effect.on_hit(

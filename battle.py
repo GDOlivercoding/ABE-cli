@@ -1,15 +1,17 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from enum import Enum, auto
-from typing import Final, Protocol, Sequence
-from help import help
-from classes import CLASSES_DICT, BirdClass, attack_wrapper, passive_wrapper
-from typing import TYPE_CHECKING
+from typing import Final, Protocol, Sequence, TYPE_CHECKING
+
 from rich.console import Console
 from rich import print
-from rich.table import Table as _Table
+from rich.table import Table as RichTable
 
-class Table(_Table):
+from value_index import TABLE
+from help import help
+from classes import CLASSES_DICT, BirdClass, attack_wrapper, passive_wrapper
+
+class Table(RichTable):
     def __enter__(self):
         return self
     
@@ -17,8 +19,6 @@ class Table(_Table):
         print(self)
 
 CONSOLE = Console()
-
-from value_index import TABLE
 
 # because of certain python versions
 # we import this type from itself for it to not scream
@@ -290,6 +290,7 @@ class Battlefield:
         return self.allied_units | self.enemy_units
 
     def add_allied_unit(self, unit: Ally):
+        unit.battle = self
         self.allied_units[unit.name] = unit
 
     def add_units_based_on_attr(self, *units: View):
@@ -302,6 +303,7 @@ class Battlefield:
                 raise ValueError
 
     def add_enemy_unit(self, unit: Enemy):
+        unit.battle = self
         self.enemy_units[unit.name] = unit
 
     def death_check(self):
