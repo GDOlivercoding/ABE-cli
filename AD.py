@@ -22,6 +22,9 @@ class DamageObject:
     def __int__(self):
         return self.damage
     
+    def __mod__(self, other: int):
+        return DamageObject(self.damage, other)
+    
     def __str__(self):
         return str(self.damage)
     

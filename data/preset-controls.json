@@ -1,0 +1,30 @@
+{
+    "builtin short preset": {
+        "attack": [
+            "attack",
+            "atk",
+            "a"
+        ],
+        "passive": [
+            "passive",
+            "pas",
+            "p"
+        ],
+        "chili": [
+            "chili",
+            "cl",
+            "c"
+        ]
+    },
+    "DEFAULT": {
+        "attack": [
+            "attack"
+        ],
+        "passive": [
+            "passive"
+        ],
+        "chili": [
+            "chili"
+        ]
+    }
+}

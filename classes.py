@@ -16,7 +16,7 @@ from value_index import TABLE, Target, chuck_chili, red_chili
 
 # KNIGHT
 
-def stringify_effects(effects: Sequence[Effect])     -> str:
+def stringify_effects(effects: Sequence[Effect]) -> str:
     """Seq[Effect] -> "Effect1", "Effect2", "Effect3" """
     return ", ".join(f'"{effect.name}"' for effect in effects)
 

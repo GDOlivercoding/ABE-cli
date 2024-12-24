@@ -38,9 +38,7 @@ class ClsDict(TypedDict):
 def red_chili(self: Ally):
     battle = self.battle
 
-    damage = TABLE[self.name][self.clsname]["attack"]["damage"].damage
-
-    chili_damage = PercDmgObject(damage) % 500
+    chili_damage = red % 500
 
     # red's chili always attacks the highest current health target
     target = max(battle.enemy_units.values(), key=lambda x: x.hp)

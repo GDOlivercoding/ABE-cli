@@ -1,12 +1,34 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 from collections.abc import Sequence
+
+def f() -> bool:
+    return False
+TYPE_CHECKING = f()
+del f
 
 if TYPE_CHECKING:
     from battle import View, Battlefield
 
-not_field = lambda: field(init=False)
+__all__ = [
+    "Shield",
+    "ForceTarget",
+    "ShockShield",
+    "ThornyShield",
+    "DamageBuff",
+    "DamageDebuff",
+    "Mimic",
+    "GooeyPoison",
+    "ThornyPoison",
+    "ToxicPoison",
+    "Healing",
+    "Knock",
+    "Freeze",
+    "Devotion",
+    "HealingShield",
+    "Immunity"
+]
 
 @dataclass
 class Effect[V: View, A: View]:
@@ -60,6 +82,15 @@ class Effect[V: View, A: View]:
     ) -> tuple[V, A, int, Sequence[Effect]]:
         """Triggered when unit with this effect takes damage"""
         return victim, attacker, damage, effects
+    
+    def after_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
+        ) -> None:
+        """
+        Triggered after all on_hit methods were called, 
+        you CANNOT change the victim, attacker, damage or effects
+        this method for effects which do something after getting hit
+        for example canoneer's counter effects
+        """
 
     def on_attack(
         self, attacker: A, victim: V, damage: int, effects: Sequence[Effect]
@@ -74,7 +105,10 @@ class Effect[V: View, A: View]:
         """Triggered at the end of the enemies' turn, same as the the start of the allies' turn"""
 
     def on_enter(self): 
-        """Triggered when this effect gets applies on a unit, triggered after it has been added to the effect dictionary"""
+        """
+        Triggered when this effect gets applies on a unit, 
+        triggered after it has been added to the effect dictionary
+        """
 
     def on_exit(self):
         """
@@ -299,9 +333,15 @@ class Immunity(PosEffect):
 class HealingShield(PosEffect):
     effectiveness: int
 
-    def on_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]):
+    def after_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]):
         
         for unit in self.wearer.battle.allied_units.values():
             unit.hp += (damage / 100) * self.effectiveness
+    
+@dataclass
+class Weaken[A: View, V: View](NegEffect):
+    effectiveness: int
 
-        return victim, attacker, damage, effects
+    def on_hit(self, victim: V, attacker: A, damage: int, effects: Sequence[Effect]
+        ) -> tuple[V, A, int, Sequence[Effect]]:
+        return victim, attacker, int(damage + ((damage / 100) * self.effectiveness)), effects

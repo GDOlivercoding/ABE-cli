@@ -1,5 +1,26 @@
+from collections.abc import Sequence
+from pathlib import Path
+from typing import TYPE_CHECKING
 from rich.table import Table
 from rich.markup import escape
+
+class TableMaker:
+    def __init__(self, *columns: str, title: str | None = None) -> None:
+        self.title = title
+        self.columns = columns
+
+    def add_rows(self, *rows: Sequence[str]):
+        self.rows = rows
+
+    def dump(self) -> Table:
+        t = Table(title=self.title)
+        for column in self.columns:
+            t.add_column(column)
+
+        for row in self.rows:
+            t.add_row(*row)
+
+        return t
 
 class _Help:
     
@@ -9,57 +30,63 @@ class _Help:
     def __getitem__(self, item: str):
         return getattr(self, item)
     
-    main_help = \
-"""
-Main help
+    battle_help = TableMaker(  
+        "Command Name", "Description", "Arguments",
+        title="Main Help\n<> - required\n[] - not required")
 
-<> - required
-[] - not required
+    battle_help.add_rows(
+        ("battle", "get all battle names, and health bars (and rage chili charge)", "No args"),
+        ("turns", "allies who still havent played their turn yet", "No args"),
+        ("abort", "abort this battle", "abort <CONFIRM>"),
+        ("stat", "view all current statistics of target", "stat <target>"),
+        ("attack", "attack target enemy", "attack <ally> [target]"),
+        ("passive", "use passive ability on target", "passive <ally> [target]"),
+        ("chili", "use rage chili on target", "chili <target>"),
+    )
 
-battle - get all battle names, and health bars (and rage chili charge)
+    battle_help = battle_help.dump()
 
-turns - allies who still havent played their turn yet
+    prebattle_help = TableMaker(
+        "Command Name", "Description", "Arguments",
+        title="Commands for the prebattle interface\n<> - required\n[] - not required"
+        )
 
-abort CONFIRM - abort this battle
+    prebattle_help.add_rows(
+        ("help", "show this help menu", "No arguments"),
+        ("exit", "go back to the world map", "No arguments"),
+        ("pick", "pick this ally to play in the battle", escape("pick <target> [class]")),
+        ("unpick", "remove this ally from playing in the battle", "unpick <target>"),
+        ("picked", "show picked allies", "No arguments"),
+        ("choices", "show all pickable allies and their classes", "No arguments"),
+        ("start", "start this battle!", "No arguments")
+    )
 
-stat <target> - get health, name, active effects, attacks, charged attacks and passives of target
+    prebattle_help = prebattle_help.dump()
 
-attack <ally> <enemy> - use attack ability on enemy
+    controls_interface = TableMaker(
+        "Command Name", "Description", "Arguments",
+        title="Commands for the controls interface\n<> - required\n[] - not required"
+    )
 
-passive <ally> [Ally] - use passive ability of ally on ally, leave second option empty to use on passive on 
-the ally itself
+    controls_interface.add_rows(
+        ("add", "add an alias for an action", "add <action-name> <new-name>"),
+        ("del", "delete an alias for an action", "add <action> <name>"),
+        ("show", "show aliases for an action, leave empty to show all", escape("show [default]")),
+        ("presets", "show preset action aliases", "No arguments"),
+        ("presets set", "'equip' a preset set of aliases", "presets set <name>"),
+        ("presets save", "save your current aliases", "presets save <name>"),
+        ("presets delete", "delete a user made preset collection", "presets delete <name>"),
+        ("defaults", "Show default aliases, unremovable... for a reason.", "No arguments"),
+        ("save", "save all current changes", "Only confirmation"),
+        ("exit", "exit the controls interface", "Only confirmation")
+    )
 
-chili <ally> - use chili on ally
+    controls_interface = controls_interface.dump()
 
-put -help or -h after any command for help
-
-flag: -p
-
-put "-p" at the end of any command to preview it
-
-ex.:
-    >>> attack red pig1 -p
-
-    red would deal 26 to pig1
-    remaining pig1 health: 8/108 (from 34/108)
-    will survive
-    ...
-"""
-
-    battle_interface = Table(title="Commands for the prebattle interface")
-
-    battle_interface.add_column("Command name")
-    battle_interface.add_column("Description")
-    battle_interface.add_column("Arguments")
-
-    battle_interface.add_row("help", "show this help menu", "No arguments")
-    battle_interface.add_row("exit", "go back to the world map", "No arguments")
-    battle_interface.add_row("pick", "pick this ally to play in the battle", 
-                             escape("pick [ally's name] [ally's class]"))
-    battle_interface.add_row("unpick", "remove this ally from playing in the battle", 
-                             escape("unpick [ally's name]"))
-    battle_interface.add_row("picked", "show picked allies", "No arguments")
-    battle_interface.add_row("choices", "show all pickable allies and their classes", "No arguments")
-    battle_interface.add_row("start", "start this battle!", "No arguments")
+class MainObj:
+    def __init__(self) -> None: 
+        self.jsons: dict[str, dict]
+        self.fp: str
+        self.data: Path
 
 help = _Help()

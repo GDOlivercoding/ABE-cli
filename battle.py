@@ -20,9 +20,6 @@ class Table(RichTable):
 
 CONSOLE = Console()
 
-# because of certain python versions
-# we import this type from itself for it to not scream
-# does not do anything at runtime
 if TYPE_CHECKING:
     from battle import View
     from effects import Effect
@@ -101,6 +98,9 @@ class View(ABC):
             effect.on_dispell()
             del self.pos_effects[effect.name]
 
+    def damage(self): ...
+    def heal(self): ...
+
     @property
     def hp(self):
         return self._hp
@@ -110,10 +110,11 @@ class View(ABC):
         setter = int(setter)
         
         if setter < self.hp:
+            damage = self.hp - setter
 
             for effect_vals in [eff.effects.values() for eff in self.battle.units.values()]:
                 for effect in effect_vals:
-                    pass # todo
+                    effect.on_hit(self, ..., damage, ...)
 
             self.battle.chili += 5
             self._hp = setter
@@ -371,7 +372,7 @@ class Battlefield:
                 command = cmd[0]
 
                 if command == "help":
-                    print(help["main_help"])
+                    print(help["battle_help"])
                     continue
 
                 elif command == "attack":
@@ -567,7 +568,7 @@ class Battlefield:
 
             print("\nEnd of enemies' turn!\n")
 
-def battle_interface() -> result:
+def battle_interface(mainobj) -> result:
 
     # dict[birdname, list[classname]]
     CHOICES: dict[str, list[str]] = {name: [n for n in iter if n.lower() != "chili"] 
@@ -581,7 +582,7 @@ def battle_interface() -> result:
         INPUT = _INPUT.split(" ")[0]
 
         if INPUT == "help":
-            print(help["battle_interface"])
+            print(help["prebattle_help"])
 
         elif INPUT == "picked":
             if not PICKED:

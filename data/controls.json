@@ -1,0 +1,21 @@
+{
+    "attack": [
+        "attack",
+        "atk",
+        "a"
+    ],
+    "passive": [
+        "passive",
+        "pas",
+        "p"
+    ],
+    "chili": [
+        "chili",
+        "cl",
+        "c"
+    ],
+    "exit": ["exit"],
+    "pick": ["pick"],
+    "unpick": ["unpick"],
+    "help": ["help"]
+}
