@@ -4,17 +4,19 @@ from battle import battle_interface, result as res
 from controls import controls_interface
 from pathlib import Path
 
+
 class JSON(Path):
     def __init__(self, *args) -> None:
         super().__init__(*args)
         self.raw_content = self.read_text()
         self.content: dict = json.loads(self.raw_content)
-    
+
     def save(self, data: dict | None = None):
         if data is None:
             self.write_text(json.dumps(self.content, indent=4))
         else:
             self.write_text(json.dumps(data, indent=4))
+
 
 class MainObj:
     def __init__(self) -> None:
@@ -29,6 +31,7 @@ class MainObj:
 
     def control(self, name: str) -> list[str]:
         return self.jsons["controls"].content.get(name, [name])
+
 
 mainobj = MainObj()
 

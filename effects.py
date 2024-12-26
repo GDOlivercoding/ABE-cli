@@ -3,13 +3,16 @@ from dataclasses import dataclass, field
 from typing import Literal
 from collections.abc import Sequence
 
+
 def f() -> bool:
     return False
+
+
 TYPE_CHECKING = f()
 del f
 
 if TYPE_CHECKING:
-    from battle import View, Battlefield
+    from battle import View, Battlefield, Ally, Enemy
 
 __all__ = [
     "Shield",
@@ -27,8 +30,9 @@ __all__ = [
     "Freeze",
     "Devotion",
     "HealingShield",
-    "Immunity"
+    "Immunity",
 ]
+
 
 @dataclass
 class Effect[V: View, A: View]:
@@ -48,7 +52,7 @@ class Effect[V: View, A: View]:
     but passed it before applying, since there is not reason to add this as a parameter, and would
     just hurt the code
 
-    `is_pos`: property[bool] = if this effect is a positive effect, positive effects can be dispelled and 
+    `is_pos`: property[bool] = if this effect is a positive effect, positive effects can be dispelled and
     negative effects can be cleansed, (ex.: shield is positive, weaken is negative)
 
     event methods:
@@ -64,12 +68,13 @@ class Effect[V: View, A: View]:
         triggered when this unit attacks, still in development because im dum
 
     """
-    name: str # ability which caused this effect
-    turns: int # turns before it expires
-    
+
+    name: str  # ability which caused this effect
+    turns: int  # turns before it expires
+
     def __post_init__(self):
-        self.wearer: View # defined during application
-        self.is_pos: bool | None # defined using subclasses
+        self.wearer: View  # defined during application
+        self.is_pos: bool | None  # defined using subclasses
         self.can_attack: bool = True
         self.can_passive: bool = True
         self.can_chili: bool = True
@@ -82,11 +87,12 @@ class Effect[V: View, A: View]:
     ) -> tuple[V, A, int, Sequence[Effect]]:
         """Triggered when unit with this effect takes damage"""
         return victim, attacker, damage, effects
-    
-    def after_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
-        ) -> None:
+
+    def after_hit(
+        self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
+    ) -> None:
         """
-        Triggered after all on_hit methods were called, 
+        Triggered after all on_hit methods were called,
         you CANNOT change the victim, attacker, damage or effects
         this method for effects which do something after getting hit
         for example canoneer's counter effects
@@ -98,30 +104,30 @@ class Effect[V: View, A: View]:
         """Triggered when unit with this effect takes attacks"""
         return attacker, victim, damage, effects
 
-    def allies_end_of_turn(self): 
+    def allies_end_of_turn(self):
         """Triggered at the end of the allies' turn, same as the the start of the enemies' turn"""
 
-    def enemies_end_of_turn(self): 
+    def enemies_end_of_turn(self):
         """Triggered at the end of the enemies' turn, same as the the start of the allies' turn"""
 
-    def on_enter(self): 
+    def on_enter(self):
         """
-        Triggered when this effect gets applies on a unit, 
+        Triggered when this effect gets applies on a unit,
         triggered after it has been added to the effect dictionary
         """
 
     def on_exit(self):
         """
-        Triggered when the effect expires, 
+        Triggered when the effect expires,
         triggered before it gets removed and after it gets marked for deletion
         """
 
-    def on_heal(self, target, heal: int):
+    def on_heal(self, heal: int):
         """
         Triggered when the unit with this effect gets healed,
         `target` is the unit with the effect, `heal` is the amount to heal
         """
-        return target, heal
+        return heal
 
     def on_cleanse(self):
         """
@@ -130,9 +136,11 @@ class Effect[V: View, A: View]:
         like a tick bomb effect from the movie fever 2016
         """
         if self.is_pos:
-            raise ValueError(f"Cannot cleanse positive effects:"
-                             f" '{self.__class__.__name__}' effect is positive")
-        
+            raise ValueError(
+                f"Cannot cleanse positive effects:"
+                f" '{self.__class__.__name__}' effect is positive"
+            )
+
     def on_dispell(self):
         """
         Triggered when this effect gets dispelled
@@ -140,25 +148,33 @@ class Effect[V: View, A: View]:
         ## This shouldn't do anything ##
         """
         if not self.is_pos:
-            raise ValueError(f"Cannot dispell negative effects:"
-                             f" '{self.__class__.__name__}' effect is negative")
+            raise ValueError(
+                f"Cannot dispell negative effects:"
+                f" '{self.__class__.__name__}' effect is negative"
+            )
+
 
 # subclassing because lazy
+
 
 class PosEffect(Effect):
     is_pos = True
 
+
 class NegEffect(Effect):
     is_pos = False
+
 
 class UndefEffect(Effect):
     is_pos = None
 
+
 # effects
+
 
 @dataclass
 class Shield(PosEffect):
-    """Reduce the damage taken by `effectiveness`"""
+    """Reduce the damage taken by `effectiveness`, source: red"""
 
     effectiveness: int
 
@@ -169,9 +185,14 @@ class Shield(PosEffect):
         damage = int((damage / 100) * eff)
         return victim, attacker, damage, effects
 
+
 @dataclass
 class ForceTarget[T: View, A: View](UndefEffect):
-    """Force the wearer of the effect to target an enemy unit, can be both positive and negative, usually wore by enemies"""
+    """
+    Force the wearer of the effect to target an enemy unit,
+    can be both positive and negative, usually wore by enemies
+    source: red(knight)
+    """
 
     target: T
 
@@ -180,24 +201,24 @@ class ForceTarget[T: View, A: View](UndefEffect):
     ) -> tuple[A, T, int, Sequence[Effect]]:
         return attacker, self.target, damage, effects
 
+
 @dataclass
 class ShockShield[V: View, A: View](PosEffect):
-    """Attacker loses fixed health on attack"""
+    """Attacker loses fixed health on attack, source: chuck(mage)"""
+
     damage: int
 
     def on_hit(
         self, victim: V, attacker: A, damage: int, effects: Sequence[Effect]
     ) -> tuple[V, A, int, Sequence[Effect]]:
 
-        attacker.hp -= self.damage
-        print(
-            f"{attacker.name} takes {self.damage} damage while trying to attack {victim.name}!"
-        )
+        attacker.deal_damage(self.damage, self.wearer)
         return victim, attacker, damage, effects
+
 
 @dataclass
 class ThornyShield[V: View, A: View](PosEffect):
-    """Attacker loses fixed health on attack"""
+    """Attacker loses fixed health on attack, source: blues(...) TODO, enemy: cactus knight"""
 
     percentage: int
 
@@ -206,15 +227,13 @@ class ThornyShield[V: View, A: View](PosEffect):
     ) -> tuple[V, A, int, Sequence[Effect]]:
 
         reflect = int((damage / 100) * self.percentage)
-        attacker.hp -= reflect
-        print(
-            f"{attacker.name} takes {reflect} damage while trying to attack {victim.name}!"
-        )
+        attacker.deal_damage(reflect, self.wearer)
         return victim, attacker, damage, effects
+
 
 @dataclass
 class DamageBuff[A: View, V: View](PosEffect):
-    """Increase damage by `percentage`%"""
+    """Increase damage by `percentage`%, source: trickers, pirate (bomb)"""
 
     effectiveness: int
 
@@ -225,10 +244,11 @@ class DamageBuff[A: View, V: View](PosEffect):
         damage = int((damage / 100) * (100 + eff))
         return attacker, victim, damage, effects
 
+
 @dataclass
 class DamageDebuff[A: View, V: View](NegEffect):
-    """Decrease damage by `percentage`%"""
-    
+    """Decrease damage by `percentage`%, source: guardian (red), zombie knight"""
+
     effectiveness: int
 
     def on_attack(
@@ -238,77 +258,108 @@ class DamageDebuff[A: View, V: View](NegEffect):
         damage = int((damage / 100) * (100 - eff))
         return attacker, victim, damage, effects
 
+
 @dataclass
 class Mimic[T: View](NegEffect):
-    """Steal healing from target onto the ally with the lowest (current) health"""
-    def on_heal(self, target: T, heal: int) -> tuple[T, Literal[0]]:
+    """Steal healing from target onto the ally with the lowest (current) health, source: ice shaman"""
+
+    def on_heal(self, target: T, heal: int) -> Literal[0]:
         battle = target.battle
 
         if target.is_ally:
             heal_target = min(battle.enemy_units.values(), key=lambda enemy: enemy.hp)
-
-            heal_target.hp += heal
         else:
             heal_target = min(battle.allied_units.values(), key=lambda ally: ally.hp)
 
-            heal_target.hp += heal
+        heal_target.heal(heal)
 
-        return target, 0
-    
+        return 0
+
+
 class Poison(NegEffect):
     """A Poison base, if you aren't familiar with poison, it is damage overtime"""
+
     damage: int
 
     def enemies_end_of_turn(self):
         if not self.wearer.is_ally:
             return
 
-        self.wearer.hp -= self.damage
+        self.wearer.deal_damage(self.damage, self.wearer)
 
-    def allies_end_of_turn(self, wearer: View, battle: Battlefield):
-        if wearer.is_ally:
+    def allies_end_of_turn(self):
+        if self.wearer.is_ally:
             return
 
-        wearer.hp -= self.damage
+        self.wearer.deal_damage(self.damage, self.wearer)
 
-class ToxicPoison(Poison): pass
-class ThornyPoison(Poison): pass
-class GooeyPoison(Poison): pass
+
+class ToxicPoison(Poison):
+    """source: rainbird, matey"""
+
+
+class ThornyPoison(Poison):
+    """source: druid, valetine's knight?"""
+
+
+class GooeyPoison(Poison):
+    """source: blues(second class) TODO, Lefty"""
+
 
 # we dont do the base
 del Poison
 
+
 @dataclass
 class Healing(PosEffect):
-    """Like poison, but it heals you, and theres only 1 type"""
+    """
+    Like poison, but it heals you, and theres only 1 type
+    source: bard, earth pig
+    """
+
     healing: int
 
     def enemies_end_of_turn(self):
         if not self.wearer.is_ally:
             return
 
-        self.wearer.hp += self.healing
+        self.wearer.heal(self.healing)
 
     def allies_end_of_turn(self):
         if self.wearer.is_ally:
             return
 
-        self.wearer.hp += self.healing
+        self.wearer.heal(self.healing)
+
 
 @dataclass
-class Stun(NegEffect): 
-    """Prevent target from using their abilities for some turns"""
+class Stun(NegEffect):
+    """
+    Prevent target from using their abilities for some turns
+    """
+
     def __post_init__(self):
         self.can_attack = self.can_passive = self.can_chili = False
 
-class Knock(Stun): pass
-class Freeze(Stun): pass
+
+class Knock(Stun):
+    """source: bard, bird catcher"""
+
+
+class Freeze(Stun):
+    """source: frost savage, ice fighter"""
+
 
 del Stun
 
+
 @dataclass
 class Devotion[T: View, P: View](PosEffect):
-    """`protector` will take attacks instead of the wearer and the wearer will get a `shield`% shield for turns"""
+    """
+    `protector` will take attacks instead of the wearer and the wearer will get a `shield`% shield for turns
+    source: paladin, clockwork knight
+    """
+
     protector: P
     shield: int = 0
 
@@ -316,32 +367,84 @@ class Devotion[T: View, P: View](PosEffect):
         if self.shield:
             self.wearer.add_pos_effects(Shield(self.name, self.turns, self.shield))
 
-    def on_hit(self, victim: View, attacker: T, damage: int, effects: Sequence[Effect]
-               ) -> tuple[P, T, int, Sequence[Effect]]:
+    def on_hit(
+        self, victim: View, attacker: T, damage: int, effects: Sequence[Effect]
+    ) -> tuple[P, T, int, Sequence[Effect]]:
         return self.protector, attacker, damage, effects
+
 
 @dataclass
 class Immunity(PosEffect):
     """
     Prevents negative effects from being applied to wearer
     usually present as a passive
+    source: aura mist (chuck set), pirates
     """
+
     def __post_init__(self):
         self.immune = True
 
+
 @dataclass
 class HealingShield(PosEffect):
+    """heal after taking damage, source: cleric"""
+
     effectiveness: int
 
-    def after_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]):
-        
+    def after_hit(
+        self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
+    ):
+
         for unit in self.wearer.battle.allied_units.values():
-            unit.hp += (damage / 100) * self.effectiveness
-    
+            unit.heal(int((damage / 100) * self.effectiveness))
+
+
 @dataclass
 class Weaken[A: View, V: View](NegEffect):
+    """Target suffers more damage, source: skulkers, prince porky, pilot pig???"""
+
     effectiveness: int
 
-    def on_hit(self, victim: V, attacker: A, damage: int, effects: Sequence[Effect]
-        ) -> tuple[V, A, int, Sequence[Effect]]:
-        return victim, attacker, int(damage + ((damage / 100) * self.effectiveness)), effects
+    def on_hit(
+        self, victim: V, attacker: A, damage: int, effects: Sequence[Effect]
+    ) -> tuple[V, A, int, Sequence[Effect]]:
+        return (
+            victim,
+            attacker,
+            int(damage + ((damage / 100) * self.effectiveness)),
+            effects,
+        )
+
+
+@dataclass
+class ChiliBlock(NegEffect):
+    """
+    block the chili on a bird for a period of time
+    source: ice / freeze pig ?
+    """
+
+    def __post_init__(self):
+        self.can_chili = False
+
+
+@dataclass
+class Ambush[A: Ally](PosEffect):
+    """used by ... blues class"""
+
+    ambusher: A
+
+    def on_hit(
+        self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
+    ) -> tuple[View, View, int, Sequence[Effect]]:
+
+        if victim.is_same(self.ambusher):
+            return self.wearer, attacker, damage, effects
+
+        return victim, attacker, damage, effects
+
+    def after_hit(
+        self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
+    ) -> None:
+        if victim.is_same(self.wearer) and isinstance(attacker, Enemy):
+            # XXX the ambusher only deals 50% damage
+            self.ambusher.attack(attacker)

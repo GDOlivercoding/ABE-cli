@@ -16,9 +16,11 @@ from value_index import TABLE, Target, chuck_chili, red_chili
 
 # KNIGHT
 
+
 def stringify_effects(effects: Sequence[Effect]) -> str:
     """Seq[Effect] -> "Effect1", "Effect2", "Effect3" """
     return ", ".join(f'"{effect.name}"' for effect in effects)
+
 
 def attack_wrapper(self: Ally, target: Enemy):
     attack = TABLE[self.name][self.clsname]["attack"]
@@ -41,7 +43,7 @@ def attack_wrapper(self: Ally, target: Enemy):
                 total_damage = 0
 
                 slice = flags["slice"]
-                
+
                 for _ in range(slice):
 
                     sliced = int(damage / slice)
@@ -87,7 +89,7 @@ def attack_wrapper(self: Ally, target: Enemy):
                 )
 
                 if effects:
-                    
+
                     str_effects = stringify_effects(effects)
 
                     print(
@@ -109,7 +111,7 @@ def attack_wrapper(self: Ally, target: Enemy):
             print()
 
         case Target.others:
-            
+
             target_info = flags["target"]
             target_damage = target_info["damage"]
             target_effects = target_info["effects"]
@@ -122,19 +124,18 @@ def attack_wrapper(self: Ally, target: Enemy):
             target.hp -= target_damage
             target.add_neg_effects(*target_effects)
 
-            
             print(
                 f"{self.name} deals {damage}hp to {target.name}"
                 f"\n{target.view()} (-{damage})"
-                )
+            )
 
-            if target_effects:           
+            if target_effects:
                 str_effects = stringify_effects(target_effects)
 
                 print(
                     f"And applies {str_effects}"
                     f" {'effects' if len(effects) > 1 else 'effect'} to {target.name}."
-                    )
+                )
 
             print()
 
@@ -154,7 +155,8 @@ def attack_wrapper(self: Ally, target: Enemy):
                 unit.hp -= damage
                 unit.add_neg_effects(*effects)
 
-                print(f"{unit.name} -{damage}hp\n")          
+                print(f"{unit.name} -{damage}hp\n")
+
 
 def passive_wrapper(self: Ally, target: Ally):
     passive = TABLE[self.name][self.clsname]["passive"]
@@ -170,20 +172,28 @@ def passive_wrapper(self: Ally, target: Ally):
 
         case Target.single:
             target.add_pos_effects(*effects)
-            
+
             if len(effects) == 1:
                 effect = effects[0]
 
                 if self == target:
-                    print(f"{self.name} gives itself '{effect.name}' for {effect.turns} turns!")
+                    print(
+                        f"{self.name} gives itself '{effect.name}' for {effect.turns} turns!"
+                    )
                 else:
-                    print(f"{self.name} gives {target.name} '{effect.name}' for {effect.turns} turns!")
+                    print(
+                        f"{self.name} gives {target.name} '{effect.name}' for {effect.turns} turns!"
+                    )
 
             else:
                 if self == target:
-                    print(f"{self.name} gives itself {stringify_effects(effects)} effects!")
+                    print(
+                        f"{self.name} gives itself {stringify_effects(effects)} effects!"
+                    )
                 else:
-                    print(f"{self.name} gives {stringify_effects(effects)} effects to {target.name}!")
+                    print(
+                        f"{self.name} gives {stringify_effects(effects)} effects to {target.name}!"
+                    )
 
         case Target.all:
             for unit in battle.allied_units.values():
@@ -191,9 +201,14 @@ def passive_wrapper(self: Ally, target: Ally):
 
             if len(effects) == 1:
                 effect = effects[0]
-                print(f"{self.name} gives all allies '{effect.name}' for {effect.turns} turns!")
+                print(
+                    f"{self.name} gives all allies '{effect.name}' for {effect.turns} turns!"
+                )
             else:
-                print(f"{self.name} gives {stringify_effects(effects)} effects to all allies!")
+                print(
+                    f"{self.name} gives {stringify_effects(effects)} effects to all allies!"
+                )
+
 
 def knight_attack(self: Ally, target: Enemy):
     """deals 26 damage to target\ntarget is also forced to attack red for 3 turns"""
@@ -252,7 +267,9 @@ def guardian_passive(self: Ally, target: Ally):
 
     print("All allies takes 25% less damage for 4 turns!")
 
+
 # SAMURAI
+
 
 def samurai_attack(self: Ally, target: Enemy):
     damage = 14
@@ -318,9 +335,6 @@ def avenger_passive(self: Ally, target: Ally):
 # chili
 
 
-
-
-
 #
 # CHUCK
 #
@@ -343,9 +357,6 @@ def mage_passive(self: Ally, target: Ally):
     target.add_effects(shock_shield)
 
     print(f"{target.name} gets a 24 damage {shock_shield.name} for 3 turns!")
-
-
-
 
 
 #

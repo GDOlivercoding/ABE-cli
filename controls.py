@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from main import MainObj
 
+
 def controls_interface(mainobj: MainObj):
     controls_file = mainobj.jsons["controls"]
     presets_file = mainobj.jsons["preset-controls"]
@@ -55,8 +56,8 @@ def controls_interface(mainobj: MainObj):
                 continue
 
             CONTROLS[action].append(new)
-            CHANGES_BEEN_MADE = True    
-            
+            CHANGES_BEEN_MADE = True
+
             print(f"Added alias '{new}'")
 
         elif command == "del":
@@ -80,7 +81,7 @@ def controls_interface(mainobj: MainObj):
 
             CONTROLS[action].remove(alias)
             CHANGES_BEEN_MADE = True
-            
+
             print(f"Removed alias '{alias}'")
 
         elif command == "show":
@@ -106,7 +107,7 @@ def controls_interface(mainobj: MainObj):
             if not CHANGES_BEEN_MADE:
                 print("No changes to save")
                 continue
-            
+
             print("Are you sure you want to save your changes?")
             while True:
                 i = input("y/n> ")
@@ -163,7 +164,7 @@ def controls_interface(mainobj: MainObj):
                 break
 
         elif command == "presets":
-            if len(parts) == 1: # were dealing with bare presets
+            if len(parts) == 1:  # were dealing with bare presets
 
                 for presetname, iter in PRESETS.items():
                     print(f"\n{presetname}:")
@@ -210,14 +211,14 @@ def controls_interface(mainobj: MainObj):
                 CHANGES_BEEN_MADE = True
 
                 print(f"Saved current controls as {name}!")
-                
+
             elif subcommand == "delete":
                 try:
                     presets, delete, name, *args = parts
                 except ValueError:
                     print("Missing arguments for command presets save")
                     continue
-                    
+
                 name = " ".join([name] + args)
 
                 if name not in PRESETS:
@@ -230,9 +231,9 @@ def controls_interface(mainobj: MainObj):
                     continue
 
                 print(f"Are you sure you want to delete preset '{name}'?\n")
-                while True:          
+                while True:
                     i = input("y/n> ")
-                    
+
                     if i == "y":
                         del PRESETS[name]
                         print(f"Deleted '{name}'")
@@ -245,5 +246,3 @@ def controls_interface(mainobj: MainObj):
 
                     else:
                         print("Invalid input")
-
-                                     
