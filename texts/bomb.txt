@@ -56,5 +56,5 @@ Frost Savage:
         stunned/frozen targets take 150% damage
 
     Freezing Barrier:
-        if any all takes damage, attacks have a 25% chance to get stunned for 1 turn
+        if any all takes damage, attacks have a 25% chance to get frozen for 1 turn
         lasts 3 turns

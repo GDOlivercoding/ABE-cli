@@ -63,3 +63,22 @@ fix classes (fill the TABLE)
 create jsons to store AD etc.
 test `battle.battle_interface()`
 put this on github
+
+--------
+--------
+--------
+--------
+27.12.24
+
+Implement a wave battle system for battle.Battlefield.start_battle()
+
+a way to send flags to an attack ("bonus attack", "only 50% damage")
+
+a way to first get the actual target, (ex.: targets with negative effects take more damage)
+but when we send View.deal_damage() the target may change, and we have to way
+to access that information
+
+a better way to implement "Stuns", "Freezes" 
+in the original game, the bird cant play its turn
+so, id want to implement it that way, though not possible
+right now, and quite irrelevant

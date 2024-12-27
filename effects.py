@@ -3,6 +3,8 @@ from dataclasses import dataclass, field
 from typing import Literal
 from collections.abc import Sequence
 
+from battle import View
+
 
 def f() -> bool:
     return False
@@ -81,6 +83,14 @@ class Effect[V: View, A: View]:
         self.can_dispell: bool = True
         self.can_cleanse: bool = True
         self.immune: bool = False
+
+    @property
+    def is_knocked(self):
+        return (
+            self.can_attack
+            and self.can_passive     
+            and self.can_chili     
+        )
 
     def on_hit(
         self, victim: V, attacker: A, damage: int, effects: Sequence[Effect]
@@ -363,6 +373,7 @@ class Devotion[T: View, P: View](PosEffect):
     protector: P
     shield: int = 0
 
+    # XXX post init, might want to rethink effects combined with another effect
     def __post_init__(self):
         if self.shield:
             self.wearer.add_pos_effects(Shield(self.name, self.turns, self.shield))
@@ -383,6 +394,7 @@ class Immunity(PosEffect):
 
     def __post_init__(self):
         self.immune = True
+        self.can_dispell = False
 
 
 @dataclass
@@ -429,7 +441,11 @@ class ChiliBlock(NegEffect):
 
 @dataclass
 class Ambush[A: Ally](PosEffect):
-    """used by ... blues class"""
+    """
+    used by marksmen blues class
+    when ambusher is about to get attacked, wearer takes the hit instead
+    if the wearer ever gets hit, the ambusher attacks with 50% damage
+    """
 
     ambusher: A
 
@@ -448,3 +464,29 @@ class Ambush[A: Ally](PosEffect):
         if victim.is_same(self.wearer) and isinstance(attacker, Enemy):
             # XXX the ambusher only deals 50% damage
             self.ambusher.attack(attacker)
+
+
+@dataclass
+class AncestralProtection(PosEffect):
+    """
+    Attackers will deal `damage_decrease`% less damage for `damage_decrease_turns` turns
+    while i try to make effects as abstract as possible
+    i dont think theres anything other than stone guard's support ability
+    which uses this effect
+
+    inflicted damage debuff effect will cary the name of this effect
+    """
+
+    damage_decrease: int
+    damage_decrease_turns: int
+
+    def after_hit(
+        self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
+    ) -> None:
+        attacker.add_neg_effects(
+            DamageDebuff(
+                name=self.name,
+                turns=self.damage_decrease_turns,
+                effectiveness=self.damage_decrease,
+            )
+        )

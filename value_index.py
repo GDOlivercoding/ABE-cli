@@ -14,6 +14,15 @@ def no_effects(self, target) -> Sequence[Effect]:
     return []
 
 
+# these ABiLiTy Flags are for an ai for the enemies
+# a potential way to help the ai without having to calculate
+class ABLTFLAGS(Enum):
+    HEALING = auto()
+    DAMAGE = auto()
+    EFFECTS = auto()
+    SUPER = auto()
+
+
 class Target(Enum):
     # the target is a single unit passed in as a parameter by default
     single = auto()
@@ -26,91 +35,45 @@ class Target(Enum):
     others = auto()
 
 
-TABLE = {
+BIRDS_TABLE: dict[str, list[str]] = {
+    "red": ["knight", "guardian", "samurai", "avenger", "paladin", "stone guard"],
+    "chuck": [
+        "mage",
+        "lightning bird",
+        "rainbird",
+        "wizard",
+        "thunderbird",
+        "illusionist",
+    ],
+    "matilda": ["cleric", "druid", "princess", "priestess", "bard", "witch"],
+    "bomb": ["pirate", "cannoneer", "berserker", "capt'n", "sea dog", "frost savage"],
+    "blues": ["trickers", "rogues", "marksmen", "skulkers", "treasure hunters"],
+}
+
+# we gotta figure out how to do effects
+# or if we even want to store them here
+# i am leaning towards not
+
+# also how to flag effects
+# and when for example, skulkers uses its support ability
+# how to send a damage reduction flag
+
+VALUE_INDEX = {
     "red": {
         "knight": {
-            "attack": {
-                "name": "Attack",
-                "damage": red % 115,
-                "targets": Target.single,
-                "effects": lambda self, target: [ForceTarget("Attack", 3, self)],
-                "flags": {},
-            },
-            "passive": {
-                "name": "Protect",
-                "damage": 0,
-                "targets": Target.single,
-                "effects": lambda self, target: [Shield("Protect", 2, 55)],
-                "flags": {},
-            },
+            "attack": {"damage": 115, "flags": []},
+            "passive": {"flags": [ABLTFLAGS.EFFECTS]},
         },
-        "guardian": {
+        "guardian": {"attack": {"damage": 110, "flags": []}, "passive": {"flags": []}},
+        "samurai": {"attack": {"damage": 50, "slice": 3, "flags": []}},
+        "avenger": {"attack": {"damage": 90}, "passive": {}},
+        "paladin": {"attack": {"damage": 135, "heal": 30}, "passive": {"flags": []}},
+        "stone guard": {
             "attack": {
-                "name": "Overpower",
-                "damage": red % 115,
-                "targets": Target.single,
-                "effects": lambda self, target: [DamageDebuff("Overpower", 2, -25)],
-                "flags": {},
-            },
-            "passive": {
-                "name": "Aura Of Fortitude",
-                "damage": 0,
-                "targets": Target.all,
-                "effects": lambda self, target: [Shield("Aura Of Fortitude", 4, 25)],
-                "flags": {},
-            },
+                "damage": 65,
+                "slice": 2,
+            }
         },
-        "samurai": {
-            "attack": {
-                "name": "Dragon Strike",
-                "damage": red % 150,
-                "targets": Target.single,
-                "effects": no_effects,
-                "flags": {"slice": 3},
-            },
-            "passive": {
-                "name": "Defensive Formation",
-                "damage": 0,
-                "targets": Target.others,
-                "effects": lambda self, target: [Shield("Defensive Formation", 1, 40)],
-                "flags": {
-                    "target": lambda self, target: Shield("Defensive Formation", 1, 50)
-                },
-            },
-        },
-        "chili": red_chili,
-    },
-    "chuck": {
-        "mage": {
-            "attack": {
-                "name": "Storm",
-                "damage": chuck % 55,
-                "targets": Target.all,
-                "effects": no_effects,
-                "flags": {},
-            },
-            "passive": {
-                "name": "Shock Shield",
-                "damage": 0,
-                "targets": Target.single,
-                "effects": lambda self, target: [
-                    ShockShield("Shock Shield", 3, (chuck % 75).damage)
-                ],
-                "flags": {},
-            },
-        },
-        "chili": chuck_chili,
-    },
-    "matilda": {
-        "cleric": {
-            "attack": {
-                "name": "Healing Strike",
-                "damage": matilda % 110,
-                "targets": Target.single,
-                "effects": no_effects,
-                "flags": {},
-            },
-            "passive": {},
-        }
-    },
+        "chili": {"damage": 500, "arena": 350, "flags": [ABLTFLAGS.DAMAGE]},
+    }
 }

@@ -1,13 +1,14 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from collections.abc import Generator, Iterable, Mapping
 from enum import Enum, auto
-from typing import Final, Protocol, Sequence, TYPE_CHECKING
+from typing import Final, Protocol, Self, Sequence, TYPE_CHECKING
 
 from rich.console import Console
 from rich import print
 from rich.table import Table as RichTable
 
-from value_index import TABLE
+from value_index import BIRDS_TABLE
 from help import help
 from classes import CLASSES_DICT, BirdClass, attack_wrapper, passive_wrapper
 
@@ -111,9 +112,29 @@ class View(ABC):
             effect.on_dispell()
             del self.pos_effects[effect.name]
 
-    def deal_damage(
-        self, damage: ConvertibleToInt, source: View, effects: Sequence[Effect] = ()
-    ):
+    def deal_damage[
+        T: View
+    ](
+        self, damage: ConvertibleToInt, source: T, effects: Sequence[Effect] = ()
+    ) -> tuple[View | Self, T, int, Sequence[Effect]]:
+        """
+        method to attack a unit,
+        this should only be called within bird class attacks, passives and chilies
+
+        NOTE:
+            poison damage will be blockable
+            gotta work on that
+            poison will probably reduce the .hp
+            attribute without any events
+
+        returns tuple[
+            target: Self or View if target gets changed
+            source: T[View] the source of the damage, usually the unit attacking (attacker)
+            damage: int the totalized finalized damage that the unit took
+            effects: Seq[Effect] a list of effects applied to the unit
+        ]
+        """
+
         damage = int(damage)
         target = self
 
@@ -125,11 +146,13 @@ class View(ABC):
 
         self.battle.chili += 5
         target.hp -= damage
-        target.add_neg_effects(*effects)
+        effects = list(target.add_neg_effects(*effects))
 
         for effect_vals in [eff.effects.values() for eff in self.battle.units.values()]:
             for effect in effect_vals:
                 effect.after_hit(target, source, damage, effects)
+
+        return target, source, damage, effects
 
     def heal(self, heal: ConvertibleToInt):
         heal = int(heal)
@@ -141,7 +164,11 @@ class View(ABC):
 
         target.hp += heal
 
-    def add_neg_effects(self, *effects: Effect):
+    def add_neg_effects(self, *effects: Effect) -> Generator[Effect, None, None]:
+        """
+        Add negative effects `effects`
+        -> Generator[effects successfully applied, None, None]
+        """
         if any(effect.immune for effect in self.effects.values()):
             return  # cannot add neg effects to immune target
 
@@ -164,6 +191,7 @@ class View(ABC):
             effect.wearer = self
             effect.is_pos = False
 
+            yield effect
             self.neg_effects[effect.name] = effect
             effect.on_enter()
 
@@ -213,6 +241,8 @@ class Ally(View):
         self.can_attack: bool = True
         self.can_passive: bool = True
         self.can_chili: bool = True
+
+    
 
     attack = attack_wrapper
     passive = passive_wrapper
@@ -280,21 +310,76 @@ class result(Enum):
     interface_aborted = auto()
     no_result = auto()
 
-
 class Battlefield:
     def __init__(
-        self, *units: View, allies: Sequence[Ally] = (), enemies: Sequence[Enemy] = ()
+        self, *waves: list[Enemy], allies: Sequence[Ally], chili=0
     ):
+        """
+        A battlefield representing an angry birds epic battle
+
+        args:
+            *units, any units, they will be assigned as allies or enemies based on their attribute
+            allies, allies added to the battle
+            enemies, enemies added to the battle
+
+        upon instantiation of a Battlefield object
+        all View(s) objects (units) will receive a unique
+        integer (View.id), this id is unique to a battle
+        which means, that there is not other unit
+        in multiple battle waves, or summoned unit
+        with the same id
+
+        the id starts at 0 going upwards
+        use View.is_same to compare units based on their identification attribute
+
+        they also received an instance of self
+        all units will get this Battlefield instance saved in their .battle attr
+
+        because this object is mutable
+        this is the way to access global Battlefield data
+
+        if you are new to this code or i am returning
+        theres a lot of instances of a class instance
+        receiving data after being put in a container
+        
+        Ally() and Enemy() are free to instantiated
+        they will receive their info and all other stuff
+        after being added to a Battlefield()
+
+        Effect() and all of its subclasses
+        receive their info after being added
+        to a unit's effect dictionary via
+        View.add_neg_effects() and View.add_pos_effects()
+        you are free to instatiate them without any of
+        their code automatically being activated
+
+        you are free to instatiate Battlefield() 
+        without units on either side, but 
+        Battlefield.start_battle() will raise a
+        ValueError if theres no units on either side
+        """
+        if not waves:
+            raise ValueError("No waves")
+
         self._id = -1
 
-        for unit in allies | enemies:  # type: ignore
+        # split because
+        # there isnt a good type
+        # for | operation
+
+        enemies = {enemy.name: enemy for enemy in waves[0]} 
+        _allies = {ally.name: ally for ally in allies}
+
+        for unit in _allies.values():
             unit.id = self.id
 
-        self.allied_units = {ally.name: ally for ally in allies}
-        self.enemy_units = {enemy.name: enemy for enemy in enemies}
+        for unit in enemies.values():
+            unit.id = self.id
+
+        self.allied_units = _allies
+        self.enemy_units = enemies
         self.turn = 0
-        self._chili = 0  # in procents
-        self.add_units_based_on_attr(*units)
+        self._chili = chili  # in procents
 
         for unit in self.units.values():
             unit.battle = self
@@ -358,6 +443,11 @@ class Battlefield:
         return result.no_result
 
     def start_battle(self) -> result:
+        if not self.units:
+            raise ValueError(f"Missing units on either side,"
+                             f" allies={len(self.allied_units)},"
+                             f" enemies={len(self.enemy_units)}")
+
         while True:
             self.played = []
             self.turn += 1
@@ -388,17 +478,30 @@ class Battlefield:
 
                 print(f"'{effect.name}' effect expired on {unit.name}.")
 
+            for unit in self.allied_units.values():
+                if any(effect.is_knocked for effect in unit.effects.values()):
+                    self.played.append(unit.name)
+
             while True:
 
                 if (b := self.death_check()) != result.no_result:
                     return b
 
-                if all([name in self.played for name in self.allied_units.keys()]):
+                check = [unit for unit in self.allied_units.values()
+                         if unit not in self.played]
+                
+                # for every bird that hasnt played their turn
+                # if they are all knocked that means
+                # theyve all played their turn
+                for unit in check:
+                    if not any(effect.is_knocked for effect in unit.effects.values()):
+                        break
+                else: # nobreak
                     break
 
                 # list of strings of allies that have already self.played their turn
 
-                cmd = input("\nType help for help> ").lower().strip().split(" ")
+                cmd = input("\nbattle> ").lower().strip().split(" ")
                 print()
 
                 command = cmd[0]
@@ -623,7 +726,8 @@ def battle_interface(mainobj) -> result:
 
     # dict[birdname, list[classname]]
     CHOICES: dict[str, list[str]] = {
-        name: [n for n in iter if n.lower() != "chili"] for name, iter in TABLE.items()
+        name: [n for n in iter if n.lower() != "chili"]
+        for name, iter in BIRDS_TABLE.items()
     }
     PICKED: dict[str, str] = {}
 
