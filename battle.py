@@ -115,11 +115,18 @@ class View(ABC):
     def deal_damage[
         T: View
     ](
-        self, damage: ConvertibleToInt, source: T, effects: Sequence[Effect] = ()
+        self, damage: ConvertibleToInt, source: T, effects: Sequence[Effect] = (), direct: bool = False
     ) -> tuple[View | Self, T, int, Sequence[Effect]]:
         """
         method to attack a unit,
-        this should only be called within bird class attacks, passives and chilies
+        this should only be called within bird class attacks, passives and chilies)
+
+        args:
+            damage: the amount of damage to deal to self
+            source: the attacker which caused this attack
+            effects: effects to be applied to self
+            direct: if True, dont apply redirecting effects, only use when you used self.get_target() yourself
+            or when this attack is not dodgable, like for example, all targeted attacks (chucks attacks)
 
         NOTE:
             poison damage will be blockable
@@ -128,15 +135,15 @@ class View(ABC):
             attribute without any events
 
         returns tuple[
-            target: Self or View if target gets changed
-            source: T[View] the source of the damage, usually the unit attacking (attacker)
-            damage: int the totalized finalized damage that the unit took
-            effects: Seq[Effect] a list of effects applied to the unit
+            Self or View if target gets changed
+            T[View] the source of the damage, usually the unit attacking (attacker)
+            int the totalized finalized damage that the unit took
+            Seq[Effect] a list of effects applied to the unit
         ]
         """
 
         damage = int(damage)
-        target = self
+        target = self if direct else self.get_target(source)
 
         for effect_vals in [eff.effects.values() for eff in self.battle.units.values()]:
             for effect in effect_vals:
@@ -163,6 +170,23 @@ class View(ABC):
                 heal = effect.on_heal(heal)
 
         target.hp += heal
+
+    def get_target(self, attacker: View) -> Self | View:
+        """
+        Obtain the target, this method by itself does not cause any damage
+        either return the object whose method is called
+        or an effect which changed the target
+        """
+        target = self
+
+        for effect in attacker.effects.values():
+            target = effect.get_target(target, attacker)
+
+        # XXX EFFECTS CAN HAVE SAME NAME
+        for effect in target.effects.values():
+            target = effect.get_target(target, attacker)
+
+        return target
 
     def add_neg_effects(self, *effects: Effect) -> Generator[Effect, None, None]:
         """
@@ -312,15 +336,14 @@ class result(Enum):
 
 class Battlefield:
     def __init__(
-        self, *waves: list[Enemy], allies: Sequence[Ally], chili=0
-    ):
+        self, *waves: list[Enemy], allies: Sequence[Ally], chili=0):
         """
         A battlefield representing an angry birds epic battle
 
         args:
-            *units, any units, they will be assigned as allies or enemies based on their attribute
-            allies, allies added to the battle
-            enemies, enemies added to the battle
+            *waves, a tuple of lists containing the enemies for each wave
+            allies, starting allies
+            chili=0, starting chili charge
 
         upon instantiation of a Battlefield object
         all View(s) objects (units) will receive a unique
@@ -360,6 +383,12 @@ class Battlefield:
         """
         if not waves:
             raise ValueError("No waves")
+        
+        self.WAVES = waves
+        self.wave_int = 1
+
+        # next(self.exhaust_waves) everytime we win a wabe
+        self.exhaust_waves = iter(waves)
 
         self._id = -1
 
@@ -717,9 +746,20 @@ class Battlefield:
             for enemy in self.enemy_units.values():
                 enemy.attack()
                 if (b := self.death_check()) != result.no_result:
-                    return b
+                    if b == result.won and len(list(self.exhaust_waves)):
+                        self.new_wave(next(self.exhaust_waves))              
+                    else:
+                        return b
 
             print("\nEnd of enemies' turn!\n")
+
+    def new_wave(self, wave: list[Enemy]):
+        for enemy in wave:
+            enemy.id = self.id
+            enemy.battle = self
+
+        self.enemy_units = {enemy.name: enemy for enemy in wave}
+        self.wave_int += 1
 
 
 def battle_interface(mainobj) -> result:

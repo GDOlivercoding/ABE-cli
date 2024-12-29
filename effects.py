@@ -164,6 +164,10 @@ class Effect[V: View, A: View]:
             )
 
 
+    def get_target(self, target: V, attacker: A) -> V | View:
+        """For effects that change the victim, such as ForceTarget or Devotion"""
+        return target
+
 # subclassing because lazy
 
 
@@ -197,19 +201,19 @@ class Shield(PosEffect):
 
 
 @dataclass
-class ForceTarget[T: View, A: View](UndefEffect):
+class ForceTarget[T: View](UndefEffect):
     """
     Force the wearer of the effect to target an enemy unit,
     can be both positive and negative, usually wore by enemies
-    source: red(knight)
+    source: red(knight), marine knight
     """
 
     target: T
 
-    def on_attack(
-        self, attacker: A, victim: View, damage: int, effects: Sequence[Effect]
-    ) -> tuple[A, T, int, Sequence[Effect]]:
-        return attacker, self.target, damage, effects
+    def get_target(self, target: T, attacker: View) -> T:
+        if attacker.is_same(self.wearer):
+            return self.target
+        return target
 
 
 @dataclass
@@ -274,7 +278,7 @@ class Mimic[T: View](NegEffect):
     """Steal healing from target onto the ally with the lowest (current) health, source: ice shaman"""
 
     def on_heal(self, target: T, heal: int) -> Literal[0]:
-        battle = target.battle
+        battle = self.wearer.battle
 
         if target.is_ally:
             heal_target = min(battle.enemy_units.values(), key=lambda enemy: enemy.hp)
@@ -378,11 +382,10 @@ class Devotion[T: View, P: View](PosEffect):
         if self.shield:
             self.wearer.add_pos_effects(Shield(self.name, self.turns, self.shield))
 
-    def on_hit(
-        self, victim: View, attacker: T, damage: int, effects: Sequence[Effect]
-    ) -> tuple[P, T, int, Sequence[Effect]]:
-        return self.protector, attacker, damage, effects
-
+    def get_target(self, target: View, attacker: View) -> View:
+        if target.is_same(self.wearer):
+            return self.protector
+        return target
 
 @dataclass
 class Immunity(PosEffect):
