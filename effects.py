@@ -3,9 +3,6 @@ from dataclasses import dataclass, field
 from typing import Literal
 from collections.abc import Sequence
 
-from battle import View
-
-
 def f() -> bool:
     return False
 
