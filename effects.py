@@ -1,14 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 from collections.abc import Sequence
-
-def f() -> bool:
-    return False
-
-
-TYPE_CHECKING = f()
-del f
 
 if TYPE_CHECKING:
     from battle import View, Battlefield, Ally, Enemy
@@ -32,6 +25,11 @@ __all__ = [
     "Immunity",
 ]
 
+# a lot of return types for these effects may seems useless
+# first, they just mean the specified type without the typevar
+# and also they are never gonna be useful
+# the reason is, for my squishy little brain, its more readable
+# and thats the point of code and types right?
 
 @dataclass
 class Effect[V: View, A: View]:
@@ -83,11 +81,7 @@ class Effect[V: View, A: View]:
 
     @property
     def is_knocked(self):
-        return (
-            self.can_attack
-            and self.can_passive     
-            and self.can_chili     
-        )
+        return self.can_attack and self.can_passive and self.can_chili
 
     def on_hit(
         self, victim: V, attacker: A, damage: int, effects: Sequence[Effect]
@@ -160,10 +154,10 @@ class Effect[V: View, A: View]:
                 f" '{self.__class__.__name__}' effect is negative"
             )
 
-
     def get_target(self, target: V, attacker: A) -> V | View:
         """For effects that change the victim, such as ForceTarget or Devotion"""
         return target
+
 
 # subclassing because lazy
 
@@ -229,7 +223,7 @@ class ShockShield[V: View, A: View](PosEffect):
 
 @dataclass
 class ThornyShield[V: View, A: View](PosEffect):
-    """Attacker loses fixed health on attack, source: blues(...) TODO, enemy: cactus knight"""
+    """Attacker loses fixed health on attack, source: blues(rogues), enemy: cactus knight"""
 
     percentage: int
 
@@ -310,11 +304,11 @@ class ToxicPoison(Poison):
 
 
 class ThornyPoison(Poison):
-    """source: druid, valetine's knight?"""
+    """source: druid, valetine's knight? its rose knight -_-"""
 
 
 class GooeyPoison(Poison):
-    """source: blues(second class) TODO, Lefty"""
+    """source: blues(rogues) Lefty"""
 
 
 # we dont do the base
@@ -379,10 +373,12 @@ class Devotion[T: View, P: View](PosEffect):
         if self.shield:
             self.wearer.add_pos_effects(Shield(self.name, self.turns, self.shield))
 
-    def get_target(self, target: View, attacker: View) -> View:
+    def get_target(self, target: T, attacker: View) -> P | T:
         if target.is_same(self.wearer):
             return self.protector
+        
         return target
+
 
 @dataclass
 class Immunity(PosEffect):
@@ -449,14 +445,13 @@ class Ambush[A: Ally](PosEffect):
 
     ambusher: A
 
-    def on_hit(
-        self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
-    ) -> tuple[View, View, int, Sequence[Effect]]:
+    # i know that the return type just means "-> View", b-but its more weadable !!
+    def get_target[T: View](self, target: T, attacker: View) -> View | T:
 
-        if victim.is_same(self.ambusher):
-            return self.wearer, attacker, damage, effects
+        if target.is_same(self.ambusher):
+            return self.wearer
 
-        return victim, attacker, damage, effects
+        return target
 
     def after_hit(
         self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]

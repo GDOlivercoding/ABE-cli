@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from collections.abc import Generator, Iterable, Mapping
+from collections.abc import Callable, Generator, Iterable, Mapping
 from enum import Enum, auto
 from typing import Final, Protocol, Self, Sequence, TYPE_CHECKING
 
@@ -10,7 +10,7 @@ from rich.table import Table as RichTable
 
 from value_index import BIRDS_TABLE
 from help import help
-from new_classes import CLASSES_DICT, BirdClass, attack_wrapper, passive_wrapper
+from new_classes import CLASSES_DICT
 
 
 class Table(RichTable):
@@ -115,7 +115,11 @@ class View(ABC):
     def deal_damage[
         T: View
     ](
-        self, damage: ConvertibleToInt, source: T, effects: Sequence[Effect] = (), direct: bool = False
+        self,
+        damage: ConvertibleToInt,
+        source: T,
+        effects: Sequence[Effect] = (),
+        direct: bool = False,
     ) -> tuple[View | Self, T, int, Sequence[Effect]]:
         """
         method to attack a unit,
@@ -213,7 +217,7 @@ class View(ABC):
                 del self.neg_effects[name]
 
             effect.wearer = self
-            effect.is_pos = False
+            effect.is_pos = False # if its an undefined effect
 
             yield effect
             self.neg_effects[effect.name] = effect
@@ -251,9 +255,10 @@ class Ally(View):
         self.name = name
         self.clsname = _class
 
-        self._class: BirdClass = CLASSES_DICT[name][_class]
-        self._chili = CLASSES_DICT[name]["chili"]
+        self.bird = CLASSES_DICT[name]
+        self._class = self.bird.get_class(_class)
 
+        # TODO add hp to classes
         self._hp = self._class.hp
         self.TOTAL_HP = self._class.TOTAL_HP
 
@@ -262,31 +267,17 @@ class Ally(View):
         self.neg_effects: dict[str, Effect] = {}
         self.pos_effects: dict[str, Effect] = {}
 
-        self.can_attack: bool = True
-        self.can_passive: bool = True
-        self.can_chili: bool = True
+    # these guys have to be here
+    # because the inner method take "2 selfs"
 
-    
+    def attack(self, target: Enemy):
+        self._class.attack(self, target)
 
-    attack = attack_wrapper
-    passive = passive_wrapper
+    def support(self, target: Ally):
+        self._class.support(self, target)
 
-    # for chili, we automate the 100% checking process
-    # and removing the rage chili use thing (to 0%)
-    # because chili's can do practically anything
-    # checking for dead enemies is done by themselves
-    def chili(self) -> bool:
-        battle = self.battle
-
-        if battle.chili != 100:
-            print(f"Chili is not charged up to 100%, chili is at {battle.chili}%")
-            return False
-
-        # XXX chili blocking effect
-
-        self._chili(self)
-        battle.chili = 0
-        return True
+    def chili(self):
+        self.bird.chili(self)
 
 
 class Enemy(View):
@@ -298,10 +289,6 @@ class Enemy(View):
         self.is_ally: Final = False
         self.neg_effects: dict[str, Effect] = {}
         self.pos_effects: dict[str, Effect] = {}
-
-        self.can_attack: bool = True
-        self.can_passive: bool = True
-        self.can_chili: bool = True
 
     def attack(self):
         self.set_target()
@@ -334,9 +321,9 @@ class result(Enum):
     interface_aborted = auto()
     no_result = auto()
 
+
 class Battlefield:
-    def __init__(
-        self, *waves: list[Enemy], allies: Sequence[Ally], chili=0):
+    def __init__(self, *waves: list[Enemy], allies: Sequence[Ally], chili=0):
         """
         A battlefield representing an angry birds epic battle
 
@@ -364,7 +351,7 @@ class Battlefield:
         if you are new to this code or i am returning
         theres a lot of instances of a class instance
         receiving data after being put in a container
-        
+
         Ally() and Enemy() are free to instantiated
         they will receive their info and all other stuff
         after being added to a Battlefield()
@@ -376,14 +363,14 @@ class Battlefield:
         you are free to instatiate them without any of
         their code automatically being activated
 
-        you are free to instatiate Battlefield() 
-        without units on either side, but 
+        you are free to instatiate Battlefield()
+        without units on either side, but
         Battlefield.start_battle() will raise a
         ValueError if theres no units on either side
         """
         if not waves:
             raise ValueError("No waves")
-        
+
         self.WAVES = waves
         self.wave_int = 1
 
@@ -396,8 +383,8 @@ class Battlefield:
         # there isnt a good type
         # for | operation
 
-        enemies = {enemy.name: enemy for enemy in waves[0]} 
-        _allies = {ally.name: ally for ally in allies}
+        enemies = {enemy.name: enemy for enemy in waves[0]}
+        _allies = {ally.clsname: ally for ally in allies}
 
         for unit in _allies.values():
             unit.id = self.id
@@ -473,9 +460,11 @@ class Battlefield:
 
     def start_battle(self) -> result:
         if not self.units:
-            raise ValueError(f"Missing units on either side,"
-                             f" allies={len(self.allied_units)},"
-                             f" enemies={len(self.enemy_units)}")
+            raise ValueError(
+                f"Missing units on either side,"
+                f" allies={len(self.allied_units)},"
+                f" enemies={len(self.enemy_units)}"
+            )
 
         while True:
             self.played = []
@@ -516,16 +505,19 @@ class Battlefield:
                 if (b := self.death_check()) != result.no_result:
                     return b
 
-                check = [unit for unit in self.allied_units.values()
-                         if unit not in self.played]
-                
+                check = [
+                    unit
+                    for unit in self.allied_units.values()
+                    if unit not in self.played
+                ]
+
                 # for every bird that hasnt played their turn
                 # if they are all knocked that means
                 # theyve all played their turn
                 for unit in check:
                     if not any(effect.is_knocked for effect in unit.effects.values()):
                         break
-                else: # nobreak
+                else:  # nobreak
                     break
 
                 # list of strings of allies that have already self.played their turn
@@ -572,9 +564,6 @@ class Battlefield:
                         print(f"Enemy name doesn't exist: {target}")
                         continue
 
-                    if not ally.can_attack:
-                        ...  # TODO
-
                     ally.attack(self.enemy_units[target])
                     self.played.append(ally.name)
 
@@ -611,7 +600,7 @@ class Battlefield:
                     if _marker:
                         continue
 
-                    ally.passive(self.allied_units[target])
+                    ally.support(self.allied_units[target])
                     self.played.append(ally.name)
 
                 elif command == "chili":
@@ -643,9 +632,13 @@ class Battlefield:
                     if _marker:
                         continue
 
-                    if not ally.chili():
+                    if self.chili != 100:
+                        print(f"Chili is not charged up to 100%, chili is at {self.chili}%")
                         continue
 
+                    ally.chili()
+
+                    self.chili = 0
                     self.played.append(ally.name)
 
                 elif command == "battle":
@@ -747,7 +740,7 @@ class Battlefield:
                 enemy.attack()
                 if (b := self.death_check()) != result.no_result:
                     if b == result.won and len(list(self.exhaust_waves)):
-                        self.new_wave(next(self.exhaust_waves))              
+                        self.new_wave(next(self.exhaust_waves))
                     else:
                         return b
 

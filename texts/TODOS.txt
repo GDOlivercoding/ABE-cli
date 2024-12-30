@@ -132,3 +132,24 @@ and again, the 50% damage flags :P am so silly :O
 i (not accidentally) deleted classes.py, so now
 rewrite everything suited for new_classes.py
 just fix all type checker errors in battle.py :S
+
+also gotta somehow fix iterating thru both effects dicts
+if for some reason i want to go thru
+both effect dicts, i usually merge them
+but it can happen that there are two
+effects with the same name which is obviously not good
+
+resolve total hp for allies
+^^^^^^^
+current battle.py error
+
+somehow put the CONTROLS from json
+into Battlefield.start_battle()
+because it dearly needs that ;-;
+
+matilda's chili: add the healing amount
+to the value index
+
+LOL
+battle.py LN 213 237
+how to check if two instances are of the same type
