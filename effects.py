@@ -457,8 +457,13 @@ class Ambush[A: Ally](PosEffect):
         self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
     ) -> None:
         if victim.is_same(self.wearer) and isinstance(attacker, Enemy):
-            # XXX the ambusher only deals 50% damage
-            self.ambusher.attack(attacker)
+
+            # temporary fix
+            atk = self.ambusher._class.attack.get()
+
+            atk.damage = atk.damage / 2
+
+            self.ambusher._class.attack.send(atk, attacker)
 
 
 @dataclass

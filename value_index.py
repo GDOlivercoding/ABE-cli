@@ -75,5 +75,14 @@ VALUE_INDEX = {
             }
         },
         "chili": {"damage": 500, "arena": 350, "flags": [ABLTFLAGS.DAMAGE]},
+    },
+    "matilda": {
+        "cleric": {
+            "attack": {"damage": 110, "heal": 25},
+            "passive": {}
+        },
+        "chili": {
+            "heal": 35
+        }
     }
 }

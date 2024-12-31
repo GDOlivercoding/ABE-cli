@@ -90,12 +90,10 @@ right now, and quite irrelevant
 
 in the context of new_classes.py:
 
+<- this is hard
 make the Ability class get all info from VALUE_INDEX immediately
 so it can be modified later on
 OR let the user modify the Ability attrs before sending it though that does the same thing
-
-make Ability.__getattr__("target") overload on all subclasses
-with all the boilerplate (more info on the overload)
 
 maybe a better way to name the functions
 when the name contain illegal characters?
@@ -146,10 +144,3 @@ current battle.py error
 somehow put the CONTROLS from json
 into Battlefield.start_battle()
 because it dearly needs that ;-;
-
-matilda's chili: add the healing amount
-to the value index
-
-LOL
-battle.py LN 213 237
-how to check if two instances are of the same type

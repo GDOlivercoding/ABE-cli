@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 import random
-from typing import Any, Literal, overload
+from typing import Any, Literal, NoReturn, Self, overload, ForwardRef
 from effects import (
     AncestralProtection,
     DamageDebuff,
@@ -14,6 +14,8 @@ from effects import (
     Shield,
 )
 from value_index import VALUE_INDEX
+from flags import FLAG
+from copy import deepcopy
 
 
 def TYPE_CHECKING() -> bool:
@@ -63,6 +65,7 @@ class Ability:
     def __init__(self, ability: Callable) -> None:
         self.ability = ability
         self.name = self.ability.__name__.replace("_", " ").strip()
+        self.flags: list[FLAG] = []
 
         # container is received upon BirdCollection initiation so be careful!
         self.container: BirdCollection
@@ -76,8 +79,27 @@ class Ability:
         return effect(name=self.name, **kwargs)  # type: ignore , Effect class always have name field
 
     # subclasses should override this function (and super() call)
-    def __call__(self, *args) -> Any:
-        self.ability(*args)
+    def __call__(self, *args, flags: list[FLAG]) -> Any:
+        self.ability(self, *args)
+
+    def get(self) -> Self:
+        copy = deepcopy(self)
+
+        birdname = self.container.birdname
+        classname = self.container.current_class
+
+        if self.typ == "chili":
+            obj: dict = VALUE_INDEX[birdname][self.typ]
+        else:
+            obj: dict = VALUE_INDEX[birdname][classname][self.typ]
+
+        for name, val in obj.items():
+            setattr(copy, name, val)
+
+        return copy
+
+    def send(self, new: Self, *args) -> None:
+        self.ability(new, *args)
 
     # the following arguments are for type safety, since all of these are always going to be their type
 
@@ -125,6 +147,15 @@ class Attack(Ability):
     def __call__(self, birdself: Ally, target: Enemy) -> Any:
         return super()(birdself, target)
 
+    @overload
+    def __getattr__(self, name: Literal["target"]) -> Enemy: ...
+
+    @overload
+    def __getattr__(self, name: str) -> Any: ...
+
+    def __getattr__(self, name: str) -> Any:
+        return super().__getattr__(name)
+
 
 class Support(Ability):
     typ = "support"
@@ -132,12 +163,31 @@ class Support(Ability):
     def __call__(self, birdself: Ally, target: Ally) -> Any:
         return super()(birdself, target)
 
+    @overload
+    def __getattr__(self, name: Literal["target"]) -> Ally: ...
+
+    @overload
+    def __getattr__(self, name: str) -> Any: ...
+
+    def __getattr__(self, name: str) -> Any:
+        return super().__getattr__(name)
+
 
 class Chili(Ability):
     typ = "chili"
 
     def __call__(self, birdself: Ally) -> Any:
         return super()(birdself)
+
+    # target doesnt exist for chilies
+    @overload
+    def __getattr__(self, name: Literal["target"]) -> NoReturn: ...
+
+    @overload
+    def __getattr__(self, name: str) -> Any: ...
+
+    def __getattr__(self, name: str) -> Any:
+        return super().__getattr__(name)
 
 
 @dataclass
@@ -359,12 +409,13 @@ def Speed_Of_Light(chili: Chili, self: Ally):
 
 def Matildas_medicine(chili: Chili, self: Ally):
     battle = self.battle
+    heal = chili.heal
 
     for unit in battle.allied_units.values():
         unit.cleanse()
-        unit.heal(
-            PercDmgObject(unit.TOTAL_HP) % 35
-        )  # TODO: 35 should be in the value index
+        actual = PercDmgObject(unit.TOTAL_HP) % heal
+
+        unit.heal(actual)
 
 
 Matildas_medicine.__name__ = "Matilda's_medicine"
@@ -404,15 +455,11 @@ Red = BirdCollection(
         support=Support(Defensive_Formation),
         classname="Samurai",
     ),
-    chili=Chili(
-        Heroic_Strike
-    ), 
+    chili=Chili(Heroic_Strike),
     birdname="red",
 )
 
-CLASSES_DICT = {
-    "red": Red
-}
+CLASSES_DICT = {"red": Red}
 
 
 if __name__ == "__main__":
