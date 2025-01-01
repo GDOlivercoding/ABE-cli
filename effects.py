@@ -1,7 +1,11 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
+import random
 from typing import Literal, TYPE_CHECKING
 from collections.abc import Sequence
+
+from battle import View
+from new_classes import PercDmgObject
 
 if TYPE_CHECKING:
     from battle import View, Battlefield, Ally, Enemy
@@ -158,6 +162,19 @@ class Effect[V: View, A: View]:
         """For effects that change the victim, such as ForceTarget or Devotion"""
         return target
 
+def get_chance(chance: int) -> bool:
+    if chance > 100 or chance < 0:
+        raise ValueError(
+            f"Invalid chance parameter: {chance},"
+            " excepted and integer in range (inclusive) 0-100 (inclusive)"
+        )
+
+    if chance == 100:
+        return True
+    elif chance == 0:
+        return False
+
+    return random.choices([True, False], weights=[chance, 100 - chance])[0]
 
 # subclassing because lazy
 
@@ -490,3 +507,52 @@ class AncestralProtection(PosEffect):
                 effectiveness=self.damage_decrease,
             )
         )
+
+@dataclass
+class Energize(PosEffect):
+    chili_boost: int
+    stun_chance: int
+    stun_duration: int
+
+    def after_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]) -> None:
+        victim.battle.chili += self.chili_boost
+
+        if get_chance(self.stun_chance):
+            attacker.add_neg_effects(Knock(name=self.name, turns=self.stun_duration))
+
+@dataclass
+class Mirror(PosEffect):
+    """Ally attacks again after attacking with lower damage, source: illusionist"""
+    atk_damage_perc: int
+
+    # XXX counter could attack before mirror gets activated
+    def after_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]) -> None:
+        if attacker.is_same(self.wearer) and isinstance(attacker, Ally):
+            get = attacker._class.attack.get()
+
+            get.damage = int(PercDmgObject(get.damage) % self.atk_damage_perc)
+
+            attacker._class.attack.send(get)
+
+@dataclass
+class ThunderStorm(NegEffect):
+    """when target suffers damage all allies suffer less damage"""
+    shared_damage_perc: int
+
+    def after_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]) -> None:
+        if victim.is_same(self.wearer):
+            shared_damage = int((damage / 100) * self.shared_damage_perc)
+
+            if victim.is_ally:
+                for enemy in victim.battle.enemy_units.values():
+                    if enemy.is_same(victim):
+                        continue
+
+                    enemy.deal_damage(shared_damage, self.wearer, direct=True)
+
+            else:
+                for ally in victim.battle.allied_units.values():
+                    if ally.is_same(victim):
+                        continue
+
+                    ally.deal_damage(shared_damage, self.wearer, direct=True)

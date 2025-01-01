@@ -9,9 +9,15 @@ from effects import (
     DamageDebuff,
     Devotion,
     Effect,
+    Energize,
     ForceTarget,
     Knock,
+    Mirror,
     Shield,
+    ShockShield,
+    ThunderStorm,
+    ToxicPoison,
+    Weaken,
 )
 from value_index import VALUE_INDEX
 from flags import FLAG
@@ -47,6 +53,21 @@ class DamageObject:
         return self.damage
 
 
+def get_chance(chance: int) -> bool:
+    if chance > 100 or chance < 0:
+        raise ValueError(
+            f"Invalid chance parameter: {chance},"
+            " excepted and integer in range (inclusive) 0-100 (inclusive)"
+        )
+
+    if chance == 100:
+        return True
+    elif chance == 0:
+        return False
+
+    return random.choices([True, False], weights=[chance, 100 - chance])[0]
+
+
 D: dict = json.load(Path(__file__).parent.joinpath("data", "AD.json").open("r"))
 del D["BASE"]
 
@@ -65,7 +86,7 @@ class Ability:
     def __init__(self, ability: Callable) -> None:
         self.ability = ability
         self.name = self.ability.__name__.replace("_", " ").strip()
-        self.flags: list[FLAG] = []
+        self.flags: Sequence[FLAG] = ()
 
         # container is received upon BirdCollection initiation so be careful!
         self.container: BirdCollection
@@ -76,10 +97,11 @@ class Ability:
     # i really wanna typehint Effect and also capture args, but only kwargs
     # but in the current type system, thats not possible
     def sbm[T: Effect](self, effect: type[T], **kwargs) -> T:
-        return effect(name=self.name, **kwargs)  # type: ignore , Effect class always have name field
+        return effect(name=self.name, **kwargs)
 
     # subclasses should override this function (and super() call)
-    def __call__(self, *args, flags: list[FLAG]) -> Any:
+    def __call__(self, *args, flags: Sequence[FLAG] = ()) -> Any:
+        self.flags = flags
         self.ability(self, *args)
 
     def get(self) -> Self:
@@ -139,56 +161,32 @@ class Ability:
             VALUE_INDEX[birdname][self.typ][name]
 
         return VALUE_INDEX[birdname][classname][self.typ][name]
+    
+    def __setattr__(self, name: str, value: Any) -> None:
+        return super().__setattr__(name, value) # big brain type checker move lol
 
 
 class Attack(Ability):
     typ = "attack"
 
-    def __call__(self, birdself: Ally, target: Enemy) -> Any:
-        return super()(birdself, target)
-
-    @overload
-    def __getattr__(self, name: Literal["target"]) -> Enemy: ...
-
-    @overload
-    def __getattr__(self, name: str) -> Any: ...
-
-    def __getattr__(self, name: str) -> Any:
-        return super().__getattr__(name)
+    def __call__(
+        self, birdself: Ally, target: Enemy, flags: Sequence[FLAG] = ()
+    ) -> Any:
+        return super()(birdself, target, flags=flags)
 
 
 class Support(Ability):
     typ = "support"
 
-    def __call__(self, birdself: Ally, target: Ally) -> Any:
-        return super()(birdself, target)
-
-    @overload
-    def __getattr__(self, name: Literal["target"]) -> Ally: ...
-
-    @overload
-    def __getattr__(self, name: str) -> Any: ...
-
-    def __getattr__(self, name: str) -> Any:
-        return super().__getattr__(name)
+    def __call__(self, birdself: Ally, target: Ally, flags: Sequence[FLAG] = ()) -> Any:
+        return super()(birdself, target, flags=flags)
 
 
 class Chili(Ability):
     typ = "chili"
 
-    def __call__(self, birdself: Ally) -> Any:
-        return super()(birdself)
-
-    # target doesnt exist for chilies
-    @overload
-    def __getattr__(self, name: Literal["target"]) -> NoReturn: ...
-
-    @overload
-    def __getattr__(self, name: str) -> Any: ...
-
-    def __getattr__(self, name: str) -> Any:
-        return super().__getattr__(name)
-
+    def __call__(self, birdself: Ally, flags: Sequence[FLAG] = ()) -> Any:
+        return super()(birdself, flags=flags)
 
 @dataclass
 class BirdClass:
@@ -272,7 +270,7 @@ def _Attack(atk: Attack, self: Ally, target: Enemy):
 def Protect(sprt: Support, self: Ally, target: Enemy):
     """target ally gets a 55% damage shield for 2 turns"""
 
-    shield = sprt.sbm(Shield, effectiveness=55, name="Protect", turns=2)
+    shield = sprt.sbm(Shield, effectiveness=55, turns=2)
 
     target.add_pos_effects(shield)
     print(f"{target.name} gets a 55% shield for 2 turns!")
@@ -373,6 +371,196 @@ def Ancestral_Protection(sprt: Support, self: Ally, target: Enemy):
 
 #
 #
+# CHUCK
+#
+#
+
+
+def Storm(atk: Attack, self: Ally, target: Enemy):
+    damage = chuck % atk.damage
+
+    for enemy in self.battle.enemy_units.values():
+        enemy.deal_damage(damage, self, direct=True)
+
+
+def Shock_Shield(sprt: Support, self: Ally, target: Ally):
+    damage = chuck % 75  # TODO add to value index
+
+    effects = sprt.sbm(ShockShield, turns=3, damage=damage)
+
+    target.add_pos_effects(effects)
+
+
+def Energy_Drain(atk: Attack, self: Ally, target: Enemy):
+    damage = chuck % 45  # same as above
+    chance = 65  # same as above
+
+    for enemy in self.battle.enemy_units.values():
+
+        if get_chance(chance):
+            enemy.dispell()
+
+        enemy.deal_damage(damage, self, direct=True)
+
+
+def Lightning_Fast(sprt: Support, self: Ally, target: Ally):
+    target._class.attack(
+        target,
+        random.choice((*self.battle.enemy_units.values(),)),
+        flags=[FLAG.super_atk],
+    )
+
+
+def Acid_Rain(atk: Attack, self: Ally, target: Enemy):
+    damage = chuck % 20
+    poison = chuck % 35
+
+    # XXX mutability issues may occur
+    effects = [atk.sbm(ToxicPoison, turns=3, damage=poison)]
+
+    for enemy in self.battle.enemy_units.values():
+        enemy.deal_damage(damage, self, effects=effects)
+
+
+def Healing_Rain(sprt: Support, self: Ally, target: Ally):
+    heal = PercDmgObject(self.TOTAL_HP) % 20
+
+    target.cleanse()
+
+    for ally in self.battle.allied_units.values():
+        ally.heal(heal)
+
+
+# this is one of the hardest functions to write
+def Chain_Lightning(atk: Attack, self: Ally, target: Enemy):
+    damage0 = chuck % 100
+    damage1 = chuck % 67
+    damage2 = chuck % 45
+    damage3 = chuck % 30
+
+    # this is gonna be a little harder
+    # what im i gonna do is
+    # create an indexed dictionary
+    # and deal damage somehow randomly and close to the target
+
+    indexed_dict = {
+        i: enemy for i, enemy in enumerate(self.battle.enemy_units.values())
+    }
+    reverse_dict = {enemy: i for i, enemy in indexed_dict.items()}
+
+    target_index = None
+
+    for enemy in reverse_dict:
+        if target.is_same(enemy):
+            target_index = reverse_dict[target]
+
+    assert target_index is not None
+
+    # lets do a couple if else checks first to make it easier for us
+
+    if len(indexed_dict) == 1:
+        indexed_dict[0].deal_damage(damage0, self, direct=True)
+        return
+
+    elif target_index == 0:
+        try:
+            for i in range(4):
+                damage = locals()[f"damage{i}"]
+
+                indexed_dict[i].deal_damage(damage, self, direct=True)
+        except (IndexError, KeyError):
+            return
+        return
+
+    elif target_index == max(indexed_dict):
+        try:
+            for i in range(target_index, target_index - 4, -1):
+
+                damage = locals()[f"damage{i}"]
+
+                indexed_dict[i].deal_damage(damage, self, direct=True)
+
+        except (IndexError, KeyError):
+            return
+        return
+
+    # no more guessing
+
+    # here we know that the target isnt alone
+    # and that the index isnt the highest or lowest
+    # which means that we can attack at least 3 targets
+
+    try:
+        target.deal_damage(damage0, self, direct=True)
+
+        target = indexed_dict[target_index + 1]
+        target.deal_damage(damage1, self, direct=True)
+
+        target = indexed_dict[target_index - 1]
+        target.deal_damage(damage2, self, direct=True)
+    except KeyError:
+        raise SystemError("In Chuck Wizard Chain_Lightning: based on if checks,"
+                          " expected at least 3 enemies on the battlefield"
+                          "actual amount of enemies={enemies}".format(enemies=len(self.battle.enemy_units))
+                          ) from None
+
+    # dirty little boilerplate checking
+    try:
+        target = indexed_dict[target_index + 2]
+        target.deal_damage(damage3, self, direct=True)
+    except KeyError:
+        try:
+            target = indexed_dict[target_index - 2]
+            target.deal_damage(damage3, self, direct=True)
+        except KeyError:
+            # in this case there are only 3 enemies on the battlefield
+            pass
+
+def _Energize(sprt: Support, self: Ally, target: Ally):
+    target.add_pos_effects(
+        sprt.sbm(
+            Energize, 
+            turns=3,
+            chili_boost=5,
+            stun_chance=20,
+            stun_duration=3
+        )
+    )
+
+def Thunderclap(atk: Attack, self: Ally, target: Enemy):
+    damage = chuck % 50
+
+    effect = atk.sbm(Weaken, effectiveness=25, turns=3)
+
+    for enemy in self.battle.enemy_units.values():
+        if target.is_same(enemy):
+            enemy.deal_damage(damage, self, effects=(effect, ), direct=True)
+            continue
+
+        enemy.deal_damage(damage, self, direct=True)
+
+def Rage_Of_Thunder(sprt: Support, self: Ally, target: Ally):
+    damage = chuck % 45
+
+    effect = sprt.sbm(ShockShield, turns=3, damage=damage)
+
+    for ally in self.battle.allied_units.values():
+        ally.add_pos_effects(effect)
+
+def Dancing_Spark(atk: Attack, self: Ally, target: Enemy):
+    damage = chuck % 100
+
+    effect = atk.sbm(ThunderStorm, shared_damage_perc=35, turns=3)
+
+    target.deal_damage(damage, self, effects=(effect,))
+
+def Mirror_Image(sprt: Support, self: Ally, target: Ally):
+    target.add_pos_effects(sprt.sbm(Mirror, attack_damage_perc=50, turns=3))
+
+# thats it for chuck
+
+#
+#
 #
 #
 #
@@ -404,7 +592,9 @@ def Speed_Of_Light(chili: Chili, self: Ally):
             c += 1
 
         # XXX we gotta also implement flags, for example, the super attack flag, and the bonus attack flag
-        unit.attack(random.choice([*battle.enemy_units.values()]))
+        unit._class.attack(
+            unit, random.choice([*battle.enemy_units.values()]), flags=(FLAG.super_atk,)
+        )
 
 
 def Matildas_medicine(chili: Chili, self: Ally):
@@ -460,8 +650,3 @@ Red = BirdCollection(
 )
 
 CLASSES_DICT = {"red": Red}
-
-
-if __name__ == "__main__":
-    Red.get_class("knight")
-    Red.chili.name

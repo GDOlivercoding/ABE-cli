@@ -89,6 +89,7 @@ class View(ABC):
         ...
 
     def view(self) -> str:  # probably deprecated
+        """Obsolete method, formatting is gonna made a different way a i think"""
         return f"{self.name} - {self.hp}/{self.TOTAL_HP}"  # type: ignore
 
     def is_same(self, target: View) -> bool:
