@@ -144,3 +144,12 @@ current battle.py error
 somehow put the CONTROLS from json
 into Battlefield.start_battle()
 because it dearly needs that ;-;
+
+###
+###
+###
+###
+###
+
+TODO 02.01.
+make battle.battle_interface() not require the bird's name

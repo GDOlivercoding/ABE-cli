@@ -36,10 +36,10 @@ class Target(Enum):
 
 
 BIRDS_TABLE: dict[str, list[str]] = {
-    "red": ["knight", "guardian", "samurai", "avenger", "paladin", "stone guard"],
+    "red": ["knight", "guardian", "samurai", "avenger", "paladin", "stone-guard"],
     "chuck": [
         "mage",
-        "lightning bird",
+        "lightning-bird",
         "rainbird",
         "wizard",
         "thunderbird",
@@ -47,7 +47,7 @@ BIRDS_TABLE: dict[str, list[str]] = {
     ],
     "matilda": ["cleric", "druid", "princess", "priestess", "bard", "witch"],
     "bomb": ["pirate", "cannoneer", "berserker", "capt'n", "sea dog", "frost savage"],
-    "blues": ["trickers", "rogues", "marksmen", "skulkers", "treasure hunters"],
+    "blues": ["trickers", "rogues", "marksmen", "skulkers", "treasure-hunters"],
 }
 
 # we gotta figure out how to do effects
@@ -77,12 +77,7 @@ VALUE_INDEX = {
         "chili": {"damage": 500, "arena": 350, "flags": [ABLTFLAGS.DAMAGE]},
     },
     "matilda": {
-        "cleric": {
-            "attack": {"damage": 110, "heal": 25},
-            "passive": {}
-        },
-        "chili": {
-            "heal": 35
-        }
-    }
+        "cleric": {"attack": {"damage": 110, "heal": 25}, "passive": {}},
+        "chili": {"heal": 35},
+    },
 }

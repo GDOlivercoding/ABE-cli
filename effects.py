@@ -4,9 +4,6 @@ import random
 from typing import Literal, TYPE_CHECKING
 from collections.abc import Sequence
 
-from battle import View
-from new_classes import PercDmgObject
-
 if TYPE_CHECKING:
     from battle import View, Battlefield, Ally, Enemy
 
@@ -85,7 +82,11 @@ class Effect[V: View, A: View]:
 
     @property
     def is_knocked(self):
-        return self.can_attack and self.can_passive and self.can_chili
+        return(
+            not self.can_attack 
+            and not self.can_passive 
+            and not self.can_chili
+        )
 
     def on_hit(
         self, victim: V, attacker: A, damage: int, effects: Sequence[Effect]
@@ -204,7 +205,7 @@ class Shield(PosEffect):
         self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
     ):
         eff = self.effectiveness
-        damage = int((damage / 100) * eff)
+        damage = int((damage / 100) * (100 - eff))
         return victim, attacker, damage, effects
 
 
@@ -230,12 +231,11 @@ class ShockShield[V: View, A: View](PosEffect):
 
     damage: int
 
-    def on_hit(
+    def after_hit(
         self, victim: V, attacker: A, damage: int, effects: Sequence[Effect]
-    ) -> tuple[V, A, int, Sequence[Effect]]:
-
-        attacker.deal_damage(self.damage, self.wearer)
-        return victim, attacker, damage, effects
+    ):
+        if victim.is_same(self.wearer):
+            attacker.deal_damage(self.damage, self.wearer, direct=True)
 
 
 @dataclass
@@ -297,33 +297,33 @@ class Mimic[T: View](NegEffect):
 
         return 0
 
-
+@dataclass
 class Poison(NegEffect):
     """A Poison base, if you aren't familiar with poison, it is damage overtime"""
 
     damage: int
 
     def enemies_end_of_turn(self):
-        if not self.wearer.is_ally:
-            return
-
-        self.wearer.deal_damage(self.damage, self.wearer)
-
-    def allies_end_of_turn(self):
         if self.wearer.is_ally:
             return
 
-        self.wearer.deal_damage(self.damage, self.wearer)
+        self.wearer.deal_damage(self.damage, self.wearer, direct=True)
 
+    def allies_end_of_turn(self):
+        if not self.wearer.is_ally:
+            return
 
+        self.wearer.deal_damage(self.damage, self.wearer, direct=True)
+
+@dataclass
 class ToxicPoison(Poison):
     """source: rainbird, matey"""
 
-
+@dataclass
 class ThornyPoison(Poison):
     """source: druid, valetine's knight? its rose knight -_-"""
 
-
+@dataclass
 class GooeyPoison(Poison):
     """source: blues(rogues) Lefty"""
 
@@ -385,8 +385,8 @@ class Devotion[T: View, P: View](PosEffect):
     protector: P
     shield: int = 0
 
-    # XXX post init, might want to rethink effects combined with another effect
-    def __post_init__(self):
+    # XXX DO NOT USE POST INIT, I REPEAT, DO NOT USE POST INIT, USE ON_ENTER, might want to rethink effects combined with another effect
+    def on_enter(self):
         if self.shield:
             self.wearer.add_pos_effects(Shield(self.name, self.turns, self.shield))
 
@@ -436,7 +436,7 @@ class Weaken[A: View, V: View](NegEffect):
         return (
             victim,
             attacker,
-            int(damage + ((damage / 100) * self.effectiveness)),
+            int(damage + ((damage / 100) * (100 - self.effectiveness))),
             effects,
         )
 
@@ -530,7 +530,7 @@ class Mirror(PosEffect):
         if attacker.is_same(self.wearer) and isinstance(attacker, Ally):
             get = attacker._class.attack.get()
 
-            get.damage = int(PercDmgObject(get.damage) % self.atk_damage_perc)
+            get.damage = int((get.damage / 100) * self.atk_damage_perc)
 
             attacker._class.attack.send(get)
 
@@ -543,7 +543,7 @@ class ThunderStorm(NegEffect):
         if victim.is_same(self.wearer):
             shared_damage = int((damage / 100) * self.shared_damage_perc)
 
-            if victim.is_ally:
+            if not victim.is_ally:
                 for enemy in victim.battle.enemy_units.values():
                     if enemy.is_same(victim):
                         continue

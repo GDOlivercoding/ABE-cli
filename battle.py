@@ -2,6 +2,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Generator, Iterable, Mapping
 from enum import Enum, auto
+import time
 from typing import Final, Protocol, Self, Sequence, TYPE_CHECKING
 
 from rich.console import Console
@@ -84,9 +85,19 @@ class View(ABC):
         self.neg_effects: dict[str, Effect]  # assigned during init
         self.pos_effects: dict[str, Effect]  # assigned during init
         self.id: int  # assigned once added to the Battlefield object
-        self.hp: int
+        self._hp: int
         self.TOTAL_HP: int
         ...
+
+    @property
+    def hp(self):
+        return self._hp
+    
+    @hp.setter
+    def hp(self, setter: ConvertibleToInt):
+        self._hp = int(setter)
+        if self._hp > self.TOTAL_HP:
+            self._hp = self.TOTAL_HP
 
     def view(self) -> str:  # probably deprecated
         """Obsolete method, formatting is gonna made a different way a i think"""
@@ -260,8 +271,9 @@ class Ally(View):
         self._class = self.bird.get_class(_class)
 
         # TODO add hp to classes
-        self._hp = self._class.hp
-        self.TOTAL_HP = self._class.TOTAL_HP
+        # dummy health to test
+        self.TOTAL_HP = 100
+        self._hp = self.TOTAL_HP
 
         self.is_ally: Final = True
 
@@ -300,15 +312,9 @@ class Enemy(View):
         target = self.current_target
         effects = []
 
-        self, target, damage, effects = process_attack(self, target, damage, effects)
+        target.deal_damage(damage, self)
 
         print(f"{self.name} attacks {target.name} for {damage} damage")
-
-        if target.is_dead():
-            print(f"{target.name} dies.")
-            del battle.allied_units[target.name]
-        else:
-            print(target.view())
 
     def set_target(self):
         # always attack the lowest health target
@@ -371,18 +377,18 @@ class Battlefield:
         """
         if not waves:
             raise ValueError("No waves")
+        
+        
 
         self.WAVES = waves
         self.wave_int = 1
 
-        # next(self.exhaust_waves) everytime we win a wabe
-        self.exhaust_waves = iter(waves)
+        # next(self.exhaust_waves) everytime we win a wave
+        # so turns out list(iter) is exhaustive too sooooooo
+        self.exhaust_waves = list(waves)
+        del self.exhaust_waves[0] # delete the first wave, that is already loaded
 
         self._id = -1
-
-        # split because
-        # there isnt a good type
-        # for | operation
 
         enemies = {enemy.name: enemy for enemy in waves[0]}
         _allies = {ally.clsname: ally for ally in allies}
@@ -444,8 +450,8 @@ class Battlefield:
     def death_check(self):
         for unit in self.units.values():
             if unit.is_dead():
-                if unit.is_ally:
-                    del self.allied_units[unit.name]
+                if isinstance(unit, Ally):
+                    del self.allied_units[unit.clsname]
                 else:
                     del self.enemy_units[unit.name]
 
@@ -466,25 +472,28 @@ class Battlefield:
                 f" allies={len(self.allied_units)},"
                 f" enemies={len(self.enemy_units)}"
             )
+        
+        tick = float("inf")
+        t2 = True
 
         while True:
             self.played = []
             self.turn += 1
 
-            for unit in self.allied_units.values():
-                for effect in unit.effects.values():
-                    effect.enemies_end_of_turn()
-                    if (b := self.death_check()) != result.no_result:
-                        return b
-
             print("\nBirds turn!\n")
 
             to_delete: dict[View, Effect] = {}
 
-            for unit in self.allied_units.values():
-                for effect in unit.effects.values():
+            for unit in self.enemy_units.values():
+                for effect in unit.neg_effects.values():
                     effect.turns -= 1
-                    if effect.turns <= 0:
+                    if effect.turns == 0:
+                        to_delete[unit] = effect
+
+            for unit in self.allied_units.values():
+                for effect in unit.pos_effects.values():
+                    effect.turns -= 1
+                    if effect.turns == 0:
                         to_delete[unit] = effect
 
             for unit, effect in to_delete.items():
@@ -497,34 +506,36 @@ class Battlefield:
 
                 print(f"'{effect.name}' effect expired on {unit.name}.")
 
-            for unit in self.allied_units.values():
-                if any(effect.is_knocked for effect in unit.effects.values()):
-                    self.played.append(unit.name)
+            for unit in self.units.values():
+                for effect in unit.effects.values():
+                    effect.enemies_end_of_turn()
 
             while True:
 
                 if (b := self.death_check()) != result.no_result:
                     return b
+                
+                #print("At the start of the turn there are {n} unplayed allies".format(
+                #    n=sum(1 for unit in self.allied_units.values() if unit.name not in self.played))
+                #)
 
                 check = [
                     unit
                     for unit in self.allied_units.values()
-                    if unit not in self.played
+                    if unit.name not in self.played
                 ]
+                
+                temp = [unit.name for unit in check]
 
-                # for every bird that hasnt played their turn
-                # if they are all knocked that means
-                # theyve all played their turn
                 for unit in check:
-                    if not any(effect.is_knocked for effect in unit.effects.values()):
-                        break
-                else:  # nobreak
+                    if any(effect.is_knocked for effect in unit.effects.values()):
+                        temp.remove(unit.name)
+
+                if not temp:
                     break
 
-                # list of strings of allies that have already self.played their turn
-
                 cmd = input("\nbattle> ").lower().strip().split(" ")
-                print()
+
 
                 command = cmd[0]
 
@@ -568,7 +579,7 @@ class Battlefield:
                     ally.attack(self.enemy_units[target])
                     self.played.append(ally.name)
 
-                elif command == "passive":
+                elif command == "support":
                     try:
                         passive, ally, *args = cmd
                     except ValueError:
@@ -586,6 +597,10 @@ class Battlefield:
 
                     if ally not in self.allied_units:
                         print("Ally name doesn't exist")
+                        continue
+
+                    if target not in self.allied_units:
+                        print("Second parameter ally name doesn't exist")
                         continue
 
                     ally = self.allied_units[ally]
@@ -652,7 +667,7 @@ class Battlefield:
 
                         for ally in self.allied_units.values():
                             allies.add_row(
-                                ally.name,
+                                ally.clsname,
                                 f"{ally.hp}/{ally.TOTAL_HP}",
                                 ", ".join(ally.effects),
                             )
@@ -722,7 +737,13 @@ class Battlefield:
             to_delete = {}
 
             for unit in self.enemy_units.values():
-                for effect in unit.effects.values():
+                for effect in unit.pos_effects.values():
+                    effect.turns -= 1
+                    if effect.turns == 0:
+                        to_delete[unit] = effect
+
+            for unit in self.allied_units.values():
+                for effect in unit.neg_effects.values():
                     effect.turns -= 1
                     if effect.turns == 0:
                         to_delete[unit] = effect
@@ -737,17 +758,30 @@ class Battlefield:
 
                 print(f"{effect.name} expired on {unit.name}.")
 
-            for enemy in self.enemy_units.values():
+            for unit in self.units.values():
+                for effect in unit.effects.values():
+                    effect.allies_end_of_turn()
+
+            for enemy in list(self.enemy_units.values()):
+                try:
+                    self.enemy_units[enemy.name]
+                except KeyError: # the enemy is dead
+                    continue
+
                 enemy.attack()
                 if (b := self.death_check()) != result.no_result:
-                    if b == result.won and len(list(self.exhaust_waves)):
-                        self.new_wave(next(self.exhaust_waves))
+                    if b == result.won and len(self.exhaust_waves):
+                        self.next_wave()
+                        print(f"Wave defeated! Incoming wave {self.wave_int}...\n")
                     else:
                         return b
 
             print("\nEnd of enemies' turn!\n")
 
-    def new_wave(self, wave: list[Enemy]):
+    def next_wave(self):
+        wave = self.exhaust_waves[0]
+        del self.exhaust_waves[0]
+
         for enemy in wave:
             enemy.id = self.id
             enemy.battle = self
@@ -760,8 +794,7 @@ def battle_interface(mainobj) -> result:
 
     # dict[birdname, list[classname]]
     CHOICES: dict[str, list[str]] = {
-        name: [n for n in iter if n.lower() != "chili"]
-        for name, iter in BIRDS_TABLE.items()
+        name: [n for n in iter] for name, iter in BIRDS_TABLE.items()
     }
     PICKED: dict[str, str] = {}
 
@@ -859,10 +892,11 @@ def battle_interface(mainobj) -> result:
                 print("Battle started!\n")
 
                 battle = Battlefield(
+                    [Enemy("dummy", 200, 10), Enemy("dummy2", 100, 20)],
+                    [Enemy(f"dummy{i}", 10, 10) for i in range(10)],
                     allies=[Ally(name, cls) for name, cls in PICKED.items()]
                 )
 
-                battle.add_enemy_unit(Enemy("dummy", 200, 10))
                 return battle.start_battle()
 
         elif INPUT == "exit":

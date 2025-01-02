@@ -1,3 +1,4 @@
+from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 import json
@@ -172,31 +173,32 @@ class Attack(Ability):
     def __call__(
         self, birdself: Ally, target: Enemy, flags: Sequence[FLAG] = ()
     ) -> Any:
-        return super()(birdself, target, flags=flags)
+        return super().__call__(birdself, target, flags=flags)
 
 
 class Support(Ability):
     typ = "support"
 
     def __call__(self, birdself: Ally, target: Ally, flags: Sequence[FLAG] = ()) -> Any:
-        return super()(birdself, target, flags=flags)
+        return super().__call__(birdself, target, flags=flags)
 
 
 class Chili(Ability):
     typ = "chili"
 
     def __call__(self, birdself: Ally, flags: Sequence[FLAG] = ()) -> Any:
-        return super()(birdself, flags=flags)
+        return super().__call__(birdself, flags=flags)
 
-@dataclass
+# not a @dataclass because of attr type safety
 class BirdClass:
-    attack: Attack
-    support: Support
-    classname: str
+    def __init__(self, attack: Callable, support: Callable, classname: str):
+        self.attack = Attack(attack)
+        self.support = Support(support)
+        self.classname = classname
 
 
 class BirdCollection:
-    def __init__(self, *classes: BirdClass, chili: Chili, birdname: str) -> None:
+    def __init__(self, *classes: BirdClass, chili: Callable, birdname: str) -> None:
         if not len(classes):
             raise ValueError("Expected at least one BirdClass object")
 
@@ -204,7 +206,7 @@ class BirdCollection:
             cls.attack.container = cls.support.container = self
 
         self.classes = {cls.classname: cls for cls in classes}
-        self.chili = chili
+        self.chili = Chili(chili)
         self.birdname = birdname
 
         self.chili.container = self
@@ -212,8 +214,7 @@ class BirdCollection:
     def get_class(self, classname: str) -> BirdClass:
         try:
             cls = self.classes[classname]
-        except KeyError:
-            raise ValueError(f"classname '{classname}' doesn't exist")
+        except KeyError:            raise ValueError(f"classname '{classname}' doesn't exist")
 
         self.current_class = cls.classname
         return cls
@@ -264,7 +265,7 @@ def _Attack(atk: Attack, self: Ally, target: Enemy):
 
     target.deal_damage(damage, self, effects)
 
-    print(f"{self.name} deals {damage} hp to {target.name}!")
+    print(f"{self.name} deals {int(damage)} hp to {target.name}!")
 
 
 def Protect(sprt: Support, self: Ally, target: Enemy):
@@ -352,13 +353,13 @@ def Feral_Assault(atk: Attack, self: Ally, target: Enemy):
 
         # i just released a fix for this, new method time!
 
-        target = target.get_target(self)
+        new = target.get_target(self)
 
-        if target.neg_effects:
+        if new.neg_effects:
             damage = PercDmgObject(int(damage)) % 150
 
         # XXX i actually think i dont have to use the direct parameter?
-        target.deal_damage(damage, self, direct=True)
+        new.deal_damage(damage, self, direct=True)
 
 
 def Ancestral_Protection(sprt: Support, self: Ally, target: Enemy):
@@ -375,9 +376,10 @@ def Ancestral_Protection(sprt: Support, self: Ally, target: Enemy):
 #
 #
 
+# temporary for check im going to set the AD manually so its testable
 
 def Storm(atk: Attack, self: Ally, target: Enemy):
-    damage = chuck % atk.damage
+    damage = chuck % 55
 
     for enemy in self.battle.enemy_units.values():
         enemy.deal_damage(damage, self, direct=True)
@@ -416,10 +418,10 @@ def Acid_Rain(atk: Attack, self: Ally, target: Enemy):
     poison = chuck % 35
 
     # XXX mutability issues may occur
-    effects = [atk.sbm(ToxicPoison, turns=3, damage=poison)]
+    # mutability issues did infact occur i love myself im so silly :3
 
     for enemy in self.battle.enemy_units.values():
-        enemy.deal_damage(damage, self, effects=effects)
+        enemy.deal_damage(damage, self, effects=(atk.sbm(ToxicPoison, turns=3, damage=poison),), direct=True)
 
 
 def Healing_Rain(sprt: Support, self: Ally, target: Ally):
@@ -541,11 +543,9 @@ def Thunderclap(atk: Attack, self: Ally, target: Enemy):
 
 def Rage_Of_Thunder(sprt: Support, self: Ally, target: Ally):
     damage = chuck % 45
-
-    effect = sprt.sbm(ShockShield, turns=3, damage=damage)
-
+    
     for ally in self.battle.allied_units.values():
-        ally.add_pos_effects(effect)
+        ally.add_pos_effects(sprt.sbm(ShockShield, turns=3, damage=damage))
 
 def Dancing_Spark(atk: Attack, self: Ally, target: Enemy):
     damage = chuck % 100
@@ -631,22 +631,78 @@ def Egg_Surprise(chili: Chili, self: Ally):
 
 Red = BirdCollection(
     BirdClass(
-        attack=Attack(_Attack),
-        support=Support(Protect),
-        classname="Knight",
+        attack=_Attack,
+        support=Protect,
+        classname="knight",
     ),
     BirdClass(
-        attack=Attack(Overpower),
-        support=Support(Aura_Of_Fortitude),
-        classname="Guardian",
+        attack=Overpower,
+        support=Aura_Of_Fortitude,
+        classname="guardian",
     ),
     BirdClass(
-        attack=Attack(Dragon_Strike),
-        support=Support(Defensive_Formation),
-        classname="Samurai",
+        attack=Dragon_Strike,
+        support=Defensive_Formation,
+        classname="samurai",
     ),
-    chili=Chili(Heroic_Strike),
+    BirdClass(
+        attack=Revenge,
+        support=avenger_support,
+        classname="avenger"
+    ),
+    BirdClass(
+        attack=Holy_Strike,
+        support=_Devotion,
+        classname="paladin"
+    ),
+    BirdClass(
+        attack=Feral_Assault,
+        support=Ancestral_Protection,
+        classname="stone-guard"
+    ),
+
+    chili=Heroic_Strike,
     birdname="red",
 )
 
-CLASSES_DICT = {"red": Red}
+Chuck = BirdCollection(
+    BirdClass(
+        attack=Storm,
+        support=Shock_Shield,
+        classname="mage"
+    ),
+    BirdClass(
+        attack=Energy_Drain,
+        support=Lightning_Fast,
+        classname="lightning-bird"
+    ),
+    BirdClass(
+        attack=Acid_Rain,
+        support=Healing_Rain,
+        classname="rainbird"
+    ),
+    BirdClass(
+        attack=Chain_Lightning,
+        support=_Energize,
+        classname="wizard"
+    ),
+    BirdClass(
+        attack=Thunderclap,
+        support=Rage_Of_Thunder,
+        classname="thunderbird"
+    ),
+    BirdClass(
+        attack=Dancing_Spark,
+        support=Mirror_Image,
+        classname="illusionist"
+    ),
+    
+    chili=Speed_Of_Light,
+    birdname="chuck"
+)
+# red and chuck are completed! :D
+
+CLASSES_DICT = {
+    "red": Red,
+    "chuck": Chuck
+}
