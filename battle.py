@@ -1,18 +1,14 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Generator, Iterable, Mapping
+from collections.abc import Generator, Iterable
 from enum import Enum, auto
-import time
-from typing import Final, Protocol, Self, Sequence, TYPE_CHECKING
-
+from typing import Final, Protocol, Self, Sequence, TYPE_CHECKING, runtime_checkable
 from rich.console import Console
 from rich import print
 from rich.table import Table as RichTable
-
 from value_index import BIRDS_TABLE
 from help import help
 from new_classes import CLASSES_DICT
-
 
 class Table(RichTable):
     def __enter__(self):
@@ -27,6 +23,7 @@ CONSOLE = Console()
 if TYPE_CHECKING:
     from battle import View
     from effects import Effect
+    from main import MainObj
 
 
 class ConvertibleToInt(Protocol):
@@ -152,8 +149,11 @@ class View(ABC):
 
         returns tuple[
             Self or View if target gets changed
+
             T[View] the source of the damage, usually the unit attacking (attacker)
+
             int the totalized finalized damage that the unit took
+            
             Seq[Effect] a list of effects applied to the unit
         ]
         """
@@ -328,9 +328,23 @@ class result(Enum):
     interface_aborted = auto()
     no_result = auto()
 
+class DummyControlSet:
+    def control(self, name: str) -> Iterable[str]:
+        return (name,)
+    
+dummy_control = DummyControlSet()
+
+@runtime_checkable
+class SupportsControl(Protocol):
+    def control(self, name: str) -> Iterable[str]: ...
 
 class Battlefield:
-    def __init__(self, *waves: list[Enemy], allies: Sequence[Ally], chili=0):
+    def __init__(self, 
+                 *waves: list[Enemy], 
+                 allies: Sequence[Ally], 
+                 chili=0,
+                 control_set: SupportsControl = dummy_control
+        ):
         """
         A battlefield representing an angry birds epic battle
 
@@ -338,6 +352,20 @@ class Battlefield:
             *waves, a tuple of lists containing the enemies for each wave
             allies, starting allies
             chili=0, starting chili charge
+            control_set: SupportsControl = dummy_control
+
+            a control set is an object which supports obj.control(str)
+            this is basically the names of the command
+            you can make your own
+            take a string and if you find the name return the all
+            the names that match
+            if not return the an iterable with the only item being
+            the string passed in passed in
+            by default a control set without any bindinds is chosen
+
+            this is all asbstract, we are always gonna be using
+            mainobj as our control "set", its not the container
+            but the english word
 
         upon instantiation of a Battlefield object
         all View(s) objects (units) will receive a unique
@@ -378,7 +406,7 @@ class Battlefield:
         if not waves:
             raise ValueError("No waves")
         
-        
+        self.control_set = control_set
 
         self.WAVES = waves
         self.wave_int = 1
@@ -473,8 +501,7 @@ class Battlefield:
                 f" enemies={len(self.enemy_units)}"
             )
         
-        tick = float("inf")
-        t2 = True
+        control = self.control_set.control
 
         while True:
             self.played = []
@@ -539,11 +566,11 @@ class Battlefield:
 
                 command = cmd[0]
 
-                if command == "help":
+                if command in control("help"):
                     print(help["battle_help"])
                     continue
 
-                elif command == "attack":
+                elif command in control("attack"):
 
                     try:
                         attack, ally, target, *args = cmd
@@ -579,7 +606,7 @@ class Battlefield:
                     ally.attack(self.enemy_units[target])
                     self.played.append(ally.name)
 
-                elif command == "support":
+                elif command in control("support"):
                     try:
                         passive, ally, *args = cmd
                     except ValueError:
@@ -619,7 +646,7 @@ class Battlefield:
                     ally.support(self.allied_units[target])
                     self.played.append(ally.name)
 
-                elif command == "chili":
+                elif command in control("chili"):
                     try:
                         attack, ally, *args = cmd
                     except ValueError:
@@ -657,7 +684,7 @@ class Battlefield:
                     self.chili = 0
                     self.played.append(ally.name)
 
-                elif command == "battle":
+                elif command in control("battle"):
 
                     with Table(title="Allies") as allies:
 
@@ -685,7 +712,7 @@ class Battlefield:
                                 ", ".join(enemy.effects),
                             )
 
-                elif command == "stat":
+                elif command in control("stat"):
                     try:
                         stat, target, *args = cmd
                     except ValueError:
@@ -712,12 +739,12 @@ class Battlefield:
                     else:
                         print(f"No unit found for '{target}'")
 
-                elif command == "turns":
+                elif command in control("turns"):
                     for unit in self.allied_units.values():
                         if unit.name not in self.played:
                             print(unit.view())
 
-                elif command == "abort":
+                elif command in control("abort"):
                     while True:
                         i = input(
                             "Are you sure you want to abort?\nCONFIRM/no\nabort> "
@@ -756,7 +783,7 @@ class Battlefield:
                 else:
                     del unit.neg_effects[effect.name]
 
-                print(f"{effect.name} expired on {unit.name}.")
+                print(f"'{effect.name}' effect expired on {unit.name}.")
 
             for unit in self.units.values():
                 for effect in unit.effects.values():
@@ -790,13 +817,33 @@ class Battlefield:
         self.wave_int += 1
 
 
-def battle_interface(mainobj) -> result:
+def battle_interface(mainobj: "MainObj") -> result:
+
+    fp = mainobj.jsons["picked"]
+
+    control = mainobj.control
 
     # dict[birdname, list[classname]]
     CHOICES: dict[str, list[str]] = {
         name: [n for n in iter] for name, iter in BIRDS_TABLE.items()
     }
-    PICKED: dict[str, str] = {}
+    PICKED: dict[str, str] = fp.content
+
+    CLASSES = {cls: bird 
+               for bird, classes in CHOICES.items() 
+               for cls in classes}
+
+    if PICKED:
+        with Table(title="Currently Picked allies") as table:
+                    table.add_column("Name")
+                    table.add_column("Class")
+
+                    for name, cls in PICKED.items():
+                        table.add_row(name, cls)
+    else:
+        print("Currently, you have no picked allies!"
+              "\nuse the pick command to pick some"
+              "\nor type help for help\n")
 
     while True:
         _INPUT = input("battle> ")
@@ -810,7 +857,7 @@ def battle_interface(mainobj) -> result:
         elif INPUT == "picked":
             if not PICKED:
                 print(
-                    "No allies picked, use the pick command to pick some\ntype help for help"
+                    "No allies picked, use the pick command to pick some\ntype help for help\n"
                 )
                 continue
 
@@ -822,50 +869,36 @@ def battle_interface(mainobj) -> result:
                     table.add_row(name, cls)
 
         elif INPUT == "choices":
-            table = Table(title="All allies and class choices")
+            with Table(title="All allies and class choices") as table:
 
-            table.add_column("Name")
-            table.add_column("Classes")
+                table.add_column("Name")
+                table.add_column("Classes")
 
-            for name, iter in CHOICES.items():
-                table.add_row(name, ", ".join(iter))
+                for name, iter in CHOICES.items():
+                    table.add_row(name, ", ".join(iter))
 
-            print(table)
-
-        elif INPUT == "pick":
+        elif INPUT in control("pick"):
 
             pick, *args = _INPUT.split(" ")
 
-            try:
-                name = args[0]
-            except IndexError:
+            if not args:
                 print("'name' is a required argument to command pick")
                 continue
 
-            if name not in CHOICES:
-                print(f"Ally '{name}' doesn't exist")
+            if len(args) >= 2:
+                name, cls, *possibly_unused = args
+                if name not in CHOICES:
+                    print(f"Ally '{name}' doesn't exist")
                 continue
-
-            if len(CHOICES[name]) != 1:
-                del args[0]
-                cls = " ".join(args)
-
-                if not cls:
-                    print(
-                        "'cls' is an optional argument to command pick\nunless theres only 1 class\nwhich there isn't"
-                    )
-                    continue
-
-                for _cls in CHOICES[name]:
-                    if _cls == cls:
-                        break
-                else:
-                    print(f"No class named '{cls}' for ally '{name}'")
-                    continue
-                PICKED[name] = cls
             else:
-                cls = CHOICES[name][0]
-                PICKED[name] = cls
+                cls = args[0]
+                if cls not in CLASSES:
+                    print(f"Class '{name}' doesn't exist")
+                    continue
+
+                name = CLASSES[cls]
+
+            PICKED[name] = cls
 
             print(f"picked '{name}'  with '{cls}' class")
 
@@ -890,11 +923,14 @@ def battle_interface(mainobj) -> result:
                 continue
             else:
                 print("Battle started!\n")
+                fp.save(PICKED)
 
+                # dummy testing battle
                 battle = Battlefield(
                     [Enemy("dummy", 200, 10), Enemy("dummy2", 100, 20)],
                     [Enemy(f"dummy{i}", 10, 10) for i in range(10)],
-                    allies=[Ally(name, cls) for name, cls in PICKED.items()]
+                    allies=[Ally(name, cls) for name, cls in PICKED.items()],
+                    control_set=mainobj
                 )
 
                 return battle.start_battle()

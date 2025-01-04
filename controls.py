@@ -1,4 +1,4 @@
-from help import help, MainObj
+from help import help
 from rich import print
 from typing import TYPE_CHECKING
 
@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from main import MainObj
 
 
-def controls_interface(mainobj: MainObj):
+def controls_interface(mainobj: "MainObj"):
     controls_file = mainobj.jsons["controls"]
     presets_file = mainobj.jsons["preset-controls"]
 

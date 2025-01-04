@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections.abc import Iterable
 import json
 from battle import battle_interface, result as res
 from controls import controls_interface
@@ -27,9 +28,9 @@ class MainObj:
         for path in self.data.iterdir():
             self.jsons[path.stem] = JSON(path)
 
-        self.fp = __file__
+        self.fp = Path(__file__)
 
-    def control(self, name: str) -> list[str]:
+    def control(self, name: str) -> Iterable[str]:
         return self.jsons["controls"].content.get(name, [name])
 
 

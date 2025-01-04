@@ -76,8 +76,31 @@ VALUE_INDEX = {
         },
         "chili": {"damage": 500, "arena": 350, "flags": [ABLTFLAGS.DAMAGE]},
     },
+    "chuck": {
+        "mage": {"attack": {"damage": 55}, "passive": {"damage": 75}},
+        "lightning-bird": {
+            "attack": {"damage": 45, "dispell_chance": 65},
+            "passive": {},
+        },
+        "rainbird": {"attack": {"damage": 20, "poison": 35}, "passive": {"heal": 20}},
+        "wizard": {
+            "attack": {"damage": 100, "damage1": 67, "damage2": 45, "damage3": 30},
+            "passive": {"chili_boost": 5, "knock_chance": 20},
+        },
+        "thunderbird": {
+            "attack": {"damage": 50, "effectiveness": 25},
+            "passive": {"damage": 45},
+        },
+        "illusionist": {
+            "attack": {"damage": 100, "shared_damage": 35},
+            "passive": {"super_atk_damage": 50},
+        },
+        "chili": {"supers": 5, "arena": 3},
+    },
     "matilda": {
-        "cleric": {"attack": {"damage": 110, "heal": 25}, "passive": {}},
+        "cleric": {"attack": {"damage": 110, "heal": 25}, "passive": {"heal": 15}},
         "chili": {"heal": 35},
     },
+    "bomb": {"chili": {"damage": 150}},
+    "blues": {"chili": {"damage": 200}},
 }

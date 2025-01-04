@@ -67,10 +67,10 @@ class _Help:
         ("exit", "go back to the world map", "No arguments"),
         (
             "pick",
-            "pick this ally to play in the battle",
-            escape("pick <target> [class]"),
+            "pick this class' of an ally to play in this battle",
+            escape("pick <class> OR pick <bird> <class>"),
         ),
-        ("unpick", "remove this ally from playing in the battle", "unpick <target>"),
+        ("unpick", "remove this ally from playing in the battle", "unpick <class>"),
         ("picked", "show picked allies", "No arguments"),
         ("choices", "show all pickable allies and their classes", "No arguments"),
         ("start", "start this battle!", "No arguments"),
@@ -111,13 +111,5 @@ class _Help:
     )
 
     controls_interface = controls_interface.dump()
-
-
-class MainObj:
-    def __init__(self) -> None:
-        self.jsons: dict[str, dict]
-        self.fp: str
-        self.data: Path
-
 
 help = _Help()
