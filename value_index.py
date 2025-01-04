@@ -62,12 +62,12 @@ VALUE_INDEX = {
     "red": {
         "knight": {
             "attack": {"damage": 115, "flags": []},
-            "passive": {"flags": [ABLTFLAGS.EFFECTS]},
+            "support": {"flags": [ABLTFLAGS.EFFECTS]},
         },
-        "guardian": {"attack": {"damage": 110, "flags": []}, "passive": {"flags": []}},
+        "guardian": {"attack": {"damage": 110, "flags": []}, "support": {"flags": []}},
         "samurai": {"attack": {"damage": 50, "slice": 3, "flags": []}},
-        "avenger": {"attack": {"damage": 90}, "passive": {}},
-        "paladin": {"attack": {"damage": 135, "heal": 30}, "passive": {"flags": []}},
+        "avenger": {"attack": {"damage": 90}, "support": {}},
+        "paladin": {"attack": {"damage": 135, "heal": 30}, "support": {"flags": []}},
         "stone guard": {
             "attack": {
                 "damage": 65,
@@ -77,28 +77,28 @@ VALUE_INDEX = {
         "chili": {"damage": 500, "arena": 350, "flags": [ABLTFLAGS.DAMAGE]},
     },
     "chuck": {
-        "mage": {"attack": {"damage": 55}, "passive": {"damage": 75}},
+        "mage": {"attack": {"damage": 55}, "support": {"damage": 75}},
         "lightning-bird": {
             "attack": {"damage": 45, "dispell_chance": 65},
-            "passive": {},
+            "support": {},
         },
-        "rainbird": {"attack": {"damage": 20, "poison": 35}, "passive": {"heal": 20}},
+        "rainbird": {"attack": {"damage": 20, "poison": 35}, "support": {"heal": 20}},
         "wizard": {
             "attack": {"damage": 100, "damage1": 67, "damage2": 45, "damage3": 30},
-            "passive": {"chili_boost": 5, "knock_chance": 20},
+            "support": {"chili_boost": 5, "knock_chance": 20},
         },
         "thunderbird": {
             "attack": {"damage": 50, "effectiveness": 25},
-            "passive": {"damage": 45},
+            "support": {"damage": 45},
         },
         "illusionist": {
             "attack": {"damage": 100, "shared_damage": 35},
-            "passive": {"super_atk_damage": 50},
+            "support": {"super_atk_damage": 50},
         },
         "chili": {"supers": 5, "arena": 3},
     },
     "matilda": {
-        "cleric": {"attack": {"damage": 110, "heal": 25}, "passive": {"heal": 15}},
+        "cleric": {"attack": {"damage": 110, "heal": 25}, "support": {"heal": 15}},
         "chili": {"heal": 35},
     },
     "bomb": {"chili": {"damage": 150}},

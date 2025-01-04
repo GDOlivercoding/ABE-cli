@@ -49,7 +49,7 @@ class _Help:
         ("abort", "abort this battle", "abort <CONFIRM>"),
         ("stat", "view all current statistics of target", "stat <target>"),
         ("attack", "attack target enemy", "attack <ally> [target]"),
-        ("passive", "use passive ability on target", "passive <ally> [target]"),
+        ("support", "use support ability on target", "support <ally> [target]"),
         ("chili", "use rage chili on target", "chili <target>"),
     )
 

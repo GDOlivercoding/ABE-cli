@@ -74,7 +74,7 @@ class Effect[V: View, A: View]:
         self.wearer: View  # defined during application
         self.is_pos: bool | None  # defined using subclasses
         self.can_attack: bool = True
-        self.can_passive: bool = True
+        self.can_support: bool = True
         self.can_chili: bool = True
         self.can_dispell: bool = True
         self.can_cleanse: bool = True
@@ -84,7 +84,7 @@ class Effect[V: View, A: View]:
     def is_knocked(self):
         return(
             not self.can_attack 
-            and not self.can_passive 
+            and not self.can_support 
             and not self.can_chili
         )
 
@@ -361,7 +361,7 @@ class Stun(NegEffect):
     """
 
     def __post_init__(self):
-        self.can_attack = self.can_passive = self.can_chili = False
+        self.can_attack = self.can_support = self.can_chili = False
 
 
 class Knock(Stun):

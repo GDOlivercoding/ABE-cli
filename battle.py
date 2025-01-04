@@ -2,6 +2,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterable
 from enum import Enum, auto
+import os
 from typing import Final, Protocol, Self, Sequence, TYPE_CHECKING, runtime_checkable
 from rich.console import Console
 from rich import print
@@ -312,7 +313,7 @@ class Enemy(View):
         target = self.current_target
         effects = []
 
-        target.deal_damage(damage, self)
+        target, self, damage, _ = target.deal_damage(damage, self)
 
         print(f"{self.name} attacks {target.name} for {damage} damage")
 
@@ -431,6 +432,7 @@ class Battlefield:
         self.enemy_units = enemies
         self.turn = 0
         self._chili = chili  # in procents
+        self.result: result = result.no_result
 
         for unit in self.units.values():
             unit.battle = self
@@ -483,15 +485,17 @@ class Battlefield:
                 else:
                     del self.enemy_units[unit.name]
 
-                print(f"{unit.name} dies.")
+                print(f"\n{unit.name} dies.")
 
         if not self.allied_units:
-            return result.lost
+            self.result = result.lost
 
         if not self.enemy_units:
-            return result.won
-
-        return result.no_result
+            if len(self.exhaust_waves):
+                self.next_wave()
+                print(f"Wave defeated! Incoming wave {self.wave_int}...\n")
+            else:
+                self.result = result.won
 
     def start_battle(self) -> result:
         if not self.units:
@@ -504,7 +508,7 @@ class Battlefield:
         control = self.control_set.control
 
         while True:
-            self.played = []
+            self.played: list[str] = []
             self.turn += 1
 
             print("\nBirds turn!\n")
@@ -536,20 +540,23 @@ class Battlefield:
             for unit in self.units.values():
                 for effect in unit.effects.values():
                     effect.enemies_end_of_turn()
+                    self.death_check()
+                    if self.result != result.no_result:
+                        return self.result
+                    
+            
 
             while True:
-
-                if (b := self.death_check()) != result.no_result:
-                    return b
                 
                 #print("At the start of the turn there are {n} unplayed allies".format(
                 #    n=sum(1 for unit in self.allied_units.values() if unit.name not in self.played))
                 #)
+                self.view_battle()
 
                 check = [
                     unit
                     for unit in self.allied_units.values()
-                    if unit.name not in self.played
+                    if unit.clsname not in self.played
                 ]
                 
                 temp = [unit.name for unit in check]
@@ -562,7 +569,6 @@ class Battlefield:
                     break
 
                 cmd = input("\nbattle> ").lower().strip().split(" ")
-
 
                 command = cmd[0]
 
@@ -582,29 +588,37 @@ class Battlefield:
                         print(help["attack"])
                         continue
 
-                    if ally not in self.allied_units:
-                        print("Ally name doesn't exist")
+                    ally = self.startswith_ally(ally)
+
+                    if ally is None:
                         continue
 
-                    ally = self.allied_units[ally]
                     _marker = False
+                    effects = []
 
-                    for name, effect in ally.effects.items():
+                    for effect in ally.effects.values():
                         if not effect.can_attack:
-                            print(
-                                f"{ally.name} can't attack because of '{name}' effect"
-                            )
+                            effects.append(effect.name)
                             _marker = True
 
                     if _marker:
+                        if len(effects) == 1:
+                            print(f"'{ally.name}' can't attack because of '{effects[0]}' effect.")
+                        else:
+                            string_effects = ", ".join(f"'{effect}'" for effect in effects)
+                            print(f"'{ally.name}' can't attack because of {string_effects} effects.")
+
                         continue
 
-                    if target not in self.enemy_units:
-                        print(f"Enemy name doesn't exist: {target}")
+                    enemy = self.startswith_enemy(target)
+
+                    if enemy is None:
                         continue
 
-                    ally.attack(self.enemy_units[target])
-                    self.played.append(ally.name)
+                    ally.attack(self.enemy_units[enemy.name])
+                    self.played.append(ally.clsname)
+                    if self.result != result.no_result:
+                        return self.result
 
                 elif command in control("support"):
                     try:
@@ -622,29 +636,37 @@ class Battlefield:
                         print(help["passive"])
                         continue
 
-                    if ally not in self.allied_units:
-                        print("Ally name doesn't exist")
+                    ally = self.startswith_ally(ally)
+
+                    if ally is None:
                         continue
 
-                    if target not in self.allied_units:
-                        print("Second parameter ally name doesn't exist")
-                        continue
-
-                    ally = self.allied_units[ally]
                     _marker = False
+                    effects = []
 
-                    for name, effect in ally.effects.items():
-                        if not effect.can_passive:
-                            print(
-                                f"{ally.name} can't use passive ability because of '{name}' effect"
-                            )
+                    for effect in ally.effects.values():
+                        if not effect.can_support:
+                            effects.append(effect.name)
                             _marker = True
 
                     if _marker:
+                        if len(effects) == 1:
+                            print(f"'{ally.name}' can't use support because of '{effects[0]}' effect.")
+                        else:
+                            string_effects = ", ".join(f"'{effect}'" for effect in effects)
+                            print(f"'{ally.name}' can't use support because of {string_effects} effects.")
+
                         continue
 
-                    ally.support(self.allied_units[target])
-                    self.played.append(ally.name)
+                    target = self.startswith_ally(target)
+
+                    if target is None:
+                        continue
+
+                    ally.support(self.allied_units[target.clsname])
+                    self.played.append(ally.clsname)
+                    if self.result != result.no_result:
+                        return self.result
 
                 elif command in control("chili"):
                     try:
@@ -657,22 +679,26 @@ class Battlefield:
                         print(help["chili"])
                         continue
 
-                    if ally not in self.allied_units:
-                        print("Ally name doesn't exist")
+                    ally = self.startswith_ally(ally)
+
+                    if ally is None:
                         continue
 
-                    ally = self.allied_units[ally]
                     _marker = False
+                    effects = []
 
-                    for name, effect in ally.effects.items():
+                    for effect in ally.effects.values():
                         if not effect.can_chili:
-                            print(
-                                f"{ally.name} can't use chili because of '{name}' effect"
-                            )
+                            effects.append(effect.name)
                             _marker = True
-                            break
 
                     if _marker:
+                        if len(effects) == 1:
+                            print(f"'{ally.name}' can't use chili because of '{effects[0]}' effect.")
+                        else:
+                            string_effects = ", ".join(f"'{effect}'" for effect in effects)
+                            print(f"'{ally.name}' can't use chili because of {string_effects} effects.")
+
                         continue
 
                     if self.chili != 100:
@@ -682,35 +708,9 @@ class Battlefield:
                     ally.chili()
 
                     self.chili = 0
-                    self.played.append(ally.name)
-
-                elif command in control("battle"):
-
-                    with Table(title="Allies") as allies:
-
-                        allies.add_column("Name")
-                        allies.add_column("Current Health/Total Health")
-                        allies.add_column("Effects")
-
-                        for ally in self.allied_units.values():
-                            allies.add_row(
-                                ally.clsname,
-                                f"{ally.hp}/{ally.TOTAL_HP}",
-                                ", ".join(ally.effects),
-                            )
-
-                    with Table(title="Enemies") as enemies:
-
-                        enemies.add_column("Name")
-                        enemies.add_column("Current Health/Total Health")
-                        enemies.add_column("Effects")
-
-                        for enemy in self.enemy_units.values():
-                            enemies.add_row(
-                                enemy.name,
-                                f"{enemy.hp}/{enemy.TOTAL_HP}",
-                                ", ".join(enemy.effects),
-                            )
+                    self.played.append(ally.clsname)
+                    if self.result != result.no_result:
+                        return self.result
 
                 elif command in control("stat"):
                     try:
@@ -732,7 +732,7 @@ class Battlefield:
                                 target.name,
                                 f"{target.hp}/{target.TOTAL_HP}",
                                 (
-                                    ", ".join(f'"{name}"' for name in target.effects)
+                                    ", ".join(target.effects)
                                     or "No active effects"
                                 ),
                             )
@@ -741,7 +741,7 @@ class Battlefield:
 
                 elif command in control("turns"):
                     for unit in self.allied_units.values():
-                        if unit.name not in self.played:
+                        if unit.clsname not in self.played:
                             print(unit.view())
 
                 elif command in control("abort"):
@@ -758,6 +758,9 @@ class Battlefield:
 
                 elif not command:
                     continue
+
+                else:
+                    print(f"No command found for '{command}'\ntype help for help\n")
 
             print("\nEnemies' turn!\n")
 
@@ -788,6 +791,9 @@ class Battlefield:
             for unit in self.units.values():
                 for effect in unit.effects.values():
                     effect.allies_end_of_turn()
+                    self.death_check()
+                    if self.result != result.no_result:
+                        return self.result
 
             for enemy in list(self.enemy_units.values()):
                 try:
@@ -796,14 +802,71 @@ class Battlefield:
                     continue
 
                 enemy.attack()
-                if (b := self.death_check()) != result.no_result:
-                    if b == result.won and len(self.exhaust_waves):
-                        self.next_wave()
-                        print(f"Wave defeated! Incoming wave {self.wave_int}...\n")
-                    else:
-                        return b
+                self.death_check()
+                if self.result != result.no_result:
+                    return self.result
 
             print("\nEnd of enemies' turn!\n")
+
+    def startswith_unit(self, unit: str) -> Ally | Enemy | None:
+        if unit in self.units:
+            return self.units[unit]
+        
+        saved = ""
+        for allyname in self.units:
+            if allyname.startswith(unit):
+                if saved:
+                    print(f"There are two or more units starting with '{unit}'!")
+                    return None          
+                saved = unit
+        
+        if not saved:
+            print(f"Didnt find a unit matching or starting with '{unit}'!")
+            return None
+        
+        return self.units[saved]
+    
+    def startswith_ally(self, ally: str) -> Ally | None:
+        s = self.startswith_unit(ally)
+        if isinstance(s, Enemy):
+            print(f"Didnt find an ally matching or starting with '{ally}'!")
+            s = None
+
+        return s
+    
+    def startswith_enemy(self, enemy: str) -> Enemy | None:
+        s = self.startswith_unit(enemy)
+        if isinstance(s, Ally):
+            print(f"Didnt find an enemy matching or starting with '{enemy}'!")
+            s = None
+
+        return s
+
+    def view_battle(self):
+        with Table(title="Allies") as allies:
+            allies.add_column("Name")
+            allies.add_column("Current Health/Total Health")
+            allies.add_column("Effects")
+
+            for ally in self.allied_units.values():
+                allies.add_row(
+                    ally.clsname,
+                    f"{ally.hp}/{ally.TOTAL_HP}",
+                    ", ".join(ally.effects),
+                )
+
+        with Table(title="Enemies") as enemies:
+
+            enemies.add_column("Name")
+            enemies.add_column("Current Health/Total Health")
+            enemies.add_column("Effects")
+
+            for enemy in self.enemy_units.values():
+                enemies.add_row(
+                    enemy.name,
+                    f"{enemy.hp}/{enemy.TOTAL_HP}",
+                    ", ".join(enemy.effects),
+                )
 
     def next_wave(self):
         wave = self.exhaust_waves[0]
@@ -851,7 +914,7 @@ def battle_interface(mainobj: "MainObj") -> result:
 
         INPUT = _INPUT.split(" ")[0]
 
-        if INPUT == "help":
+        if INPUT in control("help"):
             print(help["prebattle_help"])
 
         elif INPUT == "picked":
@@ -893,34 +956,49 @@ def battle_interface(mainobj: "MainObj") -> result:
             else:
                 cls = args[0]
                 if cls not in CLASSES:
-                    print(f"Class '{name}' doesn't exist")
+                    print(f"Class '{cls}' doesn't exist")
                     continue
 
                 name = CLASSES[cls]
 
             PICKED[name] = cls
 
-            print(f"picked '{name}'  with '{cls}' class")
+            print(f"picked '{name}' with '{cls}' class")
 
-        elif INPUT == "unpick":
-            try:
-                unpick, name, *cls = _INPUT.split(" ")
-            except ValueError:
-                print("'name' is a required argument for command unpick")
+        elif INPUT in control("unpick"):
+            unpick, *args = _INPUT.split(" ")
+
+            if not args:
+                print("'name' is a required argument to command unpick")
                 continue
 
-            try:
-                del PICKED[name]
-            except KeyError:
-                print(f"Ally '{name}' is not picked, or doesn't exist")
+            if len(args) >= 2:
+                name, cls, *possibly_unused = args
+                if name not in CHOICES:
+                    print(f"Ally '{name}' doesn't exist")
                 continue
+            else:
+                cls = args[0]
+                if cls not in CLASSES:
+                    print(f"Class '{name}' doesn't exist")
+                    continue
 
-            print(f"'{name}' unpicked with '{cls}' class")
+                name = CLASSES[cls]
+
+            del PICKED[name]
+
+            print(f"removed '{name}' with '{cls}' class")
 
         elif INPUT == "start":
             if len(PICKED) == 0:
                 print("Cannot start with no allies.")
                 continue
+
+            elif len(PICKED) > mainobj.MAX_ALLIES:
+                print(f"Maximum amount of allies exceeded,"
+                      f"\nYou may bring at most {mainobj.MAX_ALLIES} allies.")
+                continue
+
             else:
                 print("Battle started!\n")
                 fp.save(PICKED)
@@ -928,14 +1006,14 @@ def battle_interface(mainobj: "MainObj") -> result:
                 # dummy testing battle
                 battle = Battlefield(
                     [Enemy("dummy", 200, 10), Enemy("dummy2", 100, 20)],
-                    [Enemy(f"dummy{i}", 10, 10) for i in range(10)],
+                    [Enemy(f"dummy{i}", 50, 3) for i in range(10)],
                     allies=[Ally(name, cls) for name, cls in PICKED.items()],
                     control_set=mainobj
                 )
 
                 return battle.start_battle()
 
-        elif INPUT == "exit":
+        elif INPUT in control("exit"):
             return result.interface_aborted
 
         elif not INPUT:

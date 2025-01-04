@@ -96,9 +96,10 @@ class Ability:
         return effect(name=self.name, **kwargs)
 
     # subclasses should override this function (and super() call)
-    def __call__(self, *args, flags: Sequence[FLAG] = ()) -> Any:
+    def __call__(self, birdself: "Ally", *args, flags: Sequence[FLAG] = ()) -> Any:
         self.flags = flags
-        self.ability(self, *args)
+        self.ability(self, birdself, *args)
+        birdself.battle.death_check()
 
     def get(self) -> Self:
         copy = deepcopy(self)
