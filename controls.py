@@ -25,6 +25,8 @@ def controls_interface(mainobj: "MainObj"):
 
     CHANGES_BEEN_MADE = False
 
+    control = mainobj.control
+
     print()
     while True:
         inp = input("controls> ")
@@ -33,7 +35,7 @@ def controls_interface(mainobj: "MainObj"):
         parts = inp.split(" ")
         command = parts[0]
 
-        if command in mainobj.control("help"):
+        if command in control("help"):
             print(help["controls_interface"])
 
         elif command == "defaults":
@@ -129,7 +131,7 @@ def controls_interface(mainobj: "MainObj"):
                 else:
                     print("Invalid input")
 
-        elif command == mainobj.control("exit"):
+        elif command in control("exit"):
             if not CHANGES_BEEN_MADE:
                 break
 

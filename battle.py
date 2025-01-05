@@ -2,7 +2,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterable
 from enum import Enum, auto
-import os
 from typing import Final, Protocol, Self, Sequence, TYPE_CHECKING, runtime_checkable
 from rich.console import Console
 from rich import print
@@ -262,6 +261,11 @@ class View(ABC):
     def is_dead(self) -> bool:
         return self.hp <= 0
 
+# here Ally is going to be a class for ally allies
+# and its abilities are specified in attrs
+
+# but enemies are too unique
+# so they will be based off subclasses
 
 class Ally(View):
     def __init__(self, name: str, _class: str) -> None:
@@ -293,9 +297,22 @@ class Ally(View):
     def chili(self):
         self.bird.chili(self)
 
+class Pig:
+    can_chili = False
+    name = "Pig"
+    def __getattr__(self, name: str): 
+        pass
+
+pig = Pig()
 
 class Enemy(View):
-    def __init__(self, name: str, hp: int, damage: int):
+    """
+    A baseclass for enemies, or can be used as a class for simple enemies
+    it is going to be hard to determinate how simple they should be
+
+    for now ill decide for enemies with a singular attack
+    """
+    def __init__(self, name: str, hp: int, damage: int, flags={}):
         self.name = name.lower()
         self._hp = hp
         self.TOTAL_HP = hp
@@ -303,16 +320,13 @@ class Enemy(View):
         self.is_ally: Final = False
         self.neg_effects: dict[str, Effect] = {}
         self.pos_effects: dict[str, Effect] = {}
+        self.passives = {pig.name: pig} # planned for the future
 
     def attack(self):
         self.set_target()
 
-        battle = self.battle
         damage = self.damage
-
         target = self.current_target
-        effects = []
-
         target, self, damage, _ = target.deal_damage(damage, self)
 
         print(f"{self.name} attacks {target.name} for {damage} damage")

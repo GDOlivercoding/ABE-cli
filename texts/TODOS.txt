@@ -154,3 +154,8 @@ done
 
 TODO 02.01.
 make battle.battle_interface() not require the bird's name
+
+TODO 05.01. 
+improve flag system
+the way to change certain attributes like damage
+it is trash

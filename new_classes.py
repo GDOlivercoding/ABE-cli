@@ -4,7 +4,11 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 import random
-from typing import Any, Literal, NoReturn, Self, overload, ForwardRef
+from typing import TYPE_CHECKING, Any, Literal, Self, overload
+from value_index import VALUE_INDEX
+from flags import FLAG
+from copy import deepcopy
+
 from effects import (
     AncestralProtection,
     DamageDebuff,
@@ -21,18 +25,9 @@ from effects import (
     ToxicPoison,
     Weaken,
 )
-from value_index import VALUE_INDEX
-from flags import FLAG
-from copy import deepcopy
 
-
-def TYPE_CHECKING() -> bool:
-    return False
-
-
-if TYPE_CHECKING():
+if TYPE_CHECKING:
     from battle import Ally, Battlefield, Enemy
-
 
 @dataclass
 class PercDmgObject:

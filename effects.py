@@ -162,6 +162,12 @@ class Effect[V: View, A: View]:
     def get_target(self, target: V, attacker: A) -> V | View:
         """For effects that change the victim, such as ForceTarget or Devotion"""
         return target
+    
+    def on_chili(self, invoker: Ally) -> None:
+        """When the rage chili is used, usually, abilities should perform after"""
+
+    def after_chili(self, invoker: Ally) -> None:
+        """For abilities doing things after the rage chili is used, such as bonus attacks and such"""
 
 def get_chance(chance: int) -> bool:
     if chance > 100 or chance < 0:
