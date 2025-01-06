@@ -459,14 +459,17 @@ class ChiliBlock(NegEffect):
 
 
 @dataclass
-class Ambush[A: Ally](PosEffect):
+class Ambush(PosEffect):
     """
     used by marksmen blues class
     when ambusher is about to get attacked, wearer takes the hit instead
     if the wearer ever gets hit, the ambusher attacks with 50% damage
     """
 
-    ambusher: A
+    # this effect is for strictly meant for ally use
+    # will be able to use it in the future for enemies as well
+    # once i develop them more
+    ambusher: Ally
 
     # i know that the return type just means "-> View", b-but its more weadable !!
     def get_target[T: View](self, target: T, attacker: View) -> View | T:
@@ -482,11 +485,11 @@ class Ambush[A: Ally](PosEffect):
         if victim.is_same(self.wearer) and isinstance(attacker, Enemy):
 
             # temporary fix
-            atk = self.ambusher._class.attack.get()
+            atk = self.ambusher._attack.get()
 
-            atk.damage = atk.damage / 2
+            atk.damage = int(atk.damage / 2)
 
-            self.ambusher._class.attack.send(atk, attacker)
+            self.ambusher._attack.send(atk, attacker)
 
 
 @dataclass

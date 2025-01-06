@@ -4,10 +4,9 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 import random
-from typing import TYPE_CHECKING, Any, Literal, Self, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 from value_index import VALUE_INDEX
 from flags import FLAG
-from copy import deepcopy
 
 from effects import (
     AncestralProtection,
@@ -73,7 +72,15 @@ blues = AD_DICT["blues"]
 # so they can be modified after (to finally be able to send 50% damage)
 
 class AbilityHandlerObject:
-    def __getattr__(self, name) -> Any: ...
+    @overload
+    def __getattr__(self, name: Literal["damage"]) -> int: ...
+    @overload
+    def __getattr__(self, name: Literal["slice"]) -> int: ...
+    @overload
+    def __getattr__(self, name: Literal["heal"]) -> int: ...
+    @overload
+    def __getattr__(self, name: str) -> Any: ...
+    def __getattr__(self, name: str) -> Any: ...
     def __setattr__(self, name: str, value: Any) -> None: ...
     def __delattr__(self, name: str) -> None: ...
     def sbm[T: Effect](self, effect: type[T], **kwargs) -> T:

@@ -280,6 +280,10 @@ class Ally(View):
         self.TOTAL_HP = 100
         self._hp = self.TOTAL_HP
 
+        self._attack = self._class.attack
+        self._support = self._class.support
+        self._chili = self.bird.chili
+
         self.is_ally: Final = True
 
         self.neg_effects: dict[str, Effect] = {}
@@ -971,6 +975,12 @@ def battle_interface(mainobj: "MainObj") -> result:
                 cls = args[0]
                 if cls not in CLASSES:
                     print(f"Class '{cls}' doesn't exist")
+                    continue
+
+                try:
+                    CLASSES_DICT[name].get_class(cls)
+                except:
+                    print("Class unavailable :(")
                     continue
 
                 name = CLASSES[cls]
