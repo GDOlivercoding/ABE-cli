@@ -72,6 +72,12 @@ blues = AD_DICT["blues"]
 # TODO: make the getattr get the stats fully
 # so they can be modified after (to finally be able to send 50% damage)
 
+class AbilityHandlerObject:
+    def __getattr__(self, name) -> Any: ...
+    def __setattr__(self, name: str, value: Any) -> None: ...
+    def __delattr__(self, name: str) -> None: ...
+    def sbm[T: Effect](self, effect: type[T], **kwargs) -> T:
+        return effect(name=self.name, **kwargs)
 
 class Ability:
     def __init__(self, ability: Callable) -> None:
@@ -96,11 +102,11 @@ class Ability:
         self.ability(self, birdself, *args)
         birdself.battle.death_check()
 
-    def get(self) -> Self:
-        copy = deepcopy(self)
-
+    def get(self) -> AbilityHandlerObject:
         birdname = self.container.birdname
         classname = self.container.current_class
+
+        copy = AbilityHandlerObject()
 
         if self.typ == "chili":
             obj: dict = VALUE_INDEX[birdname][self.typ]
@@ -110,30 +116,16 @@ class Ability:
         for name, val in obj.items():
             setattr(copy, name, val)
 
+        copy.name = self.name
+
         return copy
 
-    def send(self, new: Self, *args) -> None:
+    def send(self, new: AbilityHandlerObject, *args) -> None:
         self.ability(new, *args)
 
     # the following arguments are for type safety, since all of these are always going to be their type
-
-    @overload
-    def __getattr__(self, name: Literal["effects"]) -> Sequence[Effect]: ...
-
     @overload
     def __getattr__(self, name: Literal["damage"]) -> int: ...
-
-    @overload
-    def __getattr__(self, name: Literal["self"]) -> Ally: ...
-
-    # subclasses should attempt to override this overload
-    # nvm, unless youre einstein you cant figure this out
-    # maybe, i'll eventually have to do this
-    # since you have to copy this overload, then the general type
-    # and then the actual implementation with the super() call
-    # for the type checker to be happy
-    @overload
-    def __getattr__(self, name: Literal["target"]) -> Ally | Enemy: ...
 
     # slice might not always appear but well define it anyways
     @overload
@@ -153,9 +145,7 @@ class Ability:
             VALUE_INDEX[birdname][self.typ][name]
 
         return VALUE_INDEX[birdname][classname][self.typ][name]
-    
-    def __setattr__(self, name: str, value: Any) -> None:
-        return super().__setattr__(name, value) # big brain type checker move lol
+
 
 
 class Attack(Ability):
