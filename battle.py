@@ -4,13 +4,11 @@ from collections.abc import Generator, Iterable
 from enum import Enum, auto
 import random
 from typing import Final, Protocol, Self, Sequence, TYPE_CHECKING, runtime_checkable
-from rich.console import Console
 from rich import print
 from rich.table import Table as RichTable
 from value_index import BIRDS_TABLE
 from help import help
 from new_classes import CLASSES_DICT
-
 
 class Table(RichTable):
     def __enter__(self):
@@ -19,68 +17,22 @@ class Table(RichTable):
     def __exit__(self, *args):
         print(self)
 
-
-CONSOLE = Console()
-
 if TYPE_CHECKING:
     from battle import View
     from effects import Effect
     from main import MainObj
 
-
 class ConvertibleToInt(Protocol):
     def __int__(self) -> int: ...
 
-
-# helper
-
-
-def process_attack(self: View, target: View, damage: int, effects: Sequence[Effect]):
-    for effect in self.effects.values():
-        self, target, damage, effects = effect.on_attack(self, target, damage, effects)
-
-    for effect in target.effects.values():
-        target, self, damage, effects = effect.on_hit(target, self, damage, effects)
-
-    target.hp -= damage
-    target.add_neg_effects(*effects)
-
-    return self, target, damage, effects
-
-
-weapon_passives = [
-    # % chance to deal % extra damage
-    "Critical Strike",
-    # heal % of dealt damage
-    "Hocus Pocus",
-    # % chance to deal % damage to another target
-    "Chain Attack",
-    # % chance to stun target for turns
-    "Stun",
-    # % chance to immediately remove all helpful effects
-    "Dispell",
-]
-
-shield_passives = [
-    # Take % less damage
-    "Vigor"
-    # deal % more damage
-    "Might"
-]
-
 # classes
-
 
 class View(ABC):
     @abstractmethod
     def __init__(self) -> None:
-        # still very experimenting with effects
-
-        # XXX differentiate positive and negative effects due to cleanse and dispell
-        # for now, theres no dispell or cleanse
         self.name: str  # assigned during init
         self.battle: Battlefield  # assigned once added to the Battlefield object
-        self.is_ally: bool  # assigned with class
+        self.is_ally: bool  # assigned with subclass
         self.neg_effects: dict[str, Effect]  # assigned during init
         self.pos_effects: dict[str, Effect]  # assigned during init
         self.id: int  # assigned once added to the Battlefield object
