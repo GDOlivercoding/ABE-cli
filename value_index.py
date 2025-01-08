@@ -1,11 +1,14 @@
 from __future__ import annotations
 from enum import Enum, auto
 
+# fmt: off
+
 class ABLTFLAGS(Enum):
     HEALING = auto()
     DAMAGE = auto()
     EFFECTS = auto()
     SUPER = auto()
+
 
 class Target(Enum):
     # the target is a single unit passed in as a parameter by default
@@ -34,49 +37,164 @@ BIRDS_TABLE: dict[str, list[str]] = {
     "blues": ["trickers", "rogues", "marksmen", "skulkers", "treasure-hunters"],
 }
 
-VALUE_INDEX = {
+VALUE_INDEX = { 
     "red": {
         "knight": {
-            "attack": {"damage": 115, "flags": []},
-            "support": {"flags": [ABLTFLAGS.EFFECTS]},
+            "attack": {
+                "damage": 115
+            },
+            "support": {}
         },
-        "guardian": {"attack": {"damage": 110, "flags": []}, "support": {"flags": []}},
-        "samurai": {"attack": {"damage": 50, "slice": 3, "flags": []}},
-        "avenger": {"attack": {"damage": 90}, "support": {}},
-        "paladin": {"attack": {"damage": 135, "heal": 30}, "support": {"flags": []}},
+        "guardian": {
+            "attack": {
+                "damage": 110
+            },
+            "support": {}
+        },
+        "samurai": {
+            "attack": {
+                "damage": 50,
+                "slice": 3
+            }
+        },
+        "avenger": {
+            "attack": {
+                "damage": 90
+            },
+            "support": {}
+        },
+        "paladin": {
+            "attack": {
+                "damage": 135,
+                "heal": 30
+            },
+            "support": {}
+        },
         "stone guard": {
             "attack": {
                 "damage": 65,
-                "slice": 2,
+                "slice": 2
             }
         },
-        "chili": {"damage": 500, "arena": 350, "flags": [ABLTFLAGS.DAMAGE]},
+        "chili": {
+            "damage": 500,
+            "arena": 350
+        }
     },
     "chuck": {
-        "mage": {"attack": {"damage": 55}, "support": {"damage": 75}},
-        "lightning-bird": {
-            "attack": {"damage": 45, "dispell_chance": 65},
-            "support": {},
+        "mage": {
+            "attack": {
+                "damage": 55
+            },
+            "support": {
+                "damage": 75
+            }
         },
-        "rainbird": {"attack": {"damage": 20, "poison": 35}, "support": {"heal": 20}},
+        "lightning-bird": {
+            "attack": {
+                "damage": 45,
+                "dispell_chance": 65
+            },
+            "support": {}
+        },
+        "rainbird": {
+            "attack": {
+                "damage": 20,
+                "poison": 35
+            },
+            "support": {
+                "heal": 20
+            }
+        },
         "wizard": {
-            "attack": {"damage": 100, "damage1": 67, "damage2": 45, "damage3": 30},
-            "support": {"chili_boost": 5, "knock_chance": 20},
+            "attack": {
+                "damage": 100,
+                "damage1": 67,
+                "damage2": 45,
+                "damage3": 30
+            },
+            "support": {
+                "chili_boost": 5,
+                "stun_chance": 20
+            }
         },
         "thunderbird": {
-            "attack": {"damage": 50, "effectiveness": 25},
-            "support": {"damage": 45},
+            "attack": {
+                "damage": 50,
+                "effectiveness": 25
+            },
+            "support": {
+                "damage": 45
+            }
         },
         "illusionist": {
-            "attack": {"damage": 100, "shared_damage": 35},
-            "support": {"super_atk_damage": 50},
+            "attack": {
+                "damage": 100,
+                "shared_damage": 35
+            },
+            "support": {
+                "super_atk_damage": 50
+            }
         },
-        "chili": {"supers": 5, "arena": 3},
+        "chili": {
+            "supers": 5,
+            "arena": 3
+        }
     },
     "matilda": {
-        "cleric": {"attack": {"damage": 110, "heal": 25}, "support": {"heal": 15}},
-        "chili": {"heal": 35},
+        "cleric": {
+            "attack": {
+                "damage": 110,
+                "heal": 25
+            },
+            "support": {
+                "heal": 15
+            }
+        },
+        "druid": {
+            "attack": {
+                "damage": 35,
+                "poison": 100
+            },
+            "passive": {
+                "heal": 22,
+                "others": 10
+            }
+        },
+        "princess": {
+            "attack": {
+                "damage": 125
+            },
+            "passive": {
+                "heal": 30
+            }
+        },
+        "chili": {
+            "heal": 35
+        }
     },
-    "bomb": {"chili": {"damage": 150}},
-    "blues": {"chili": {"damage": 200}},
-}
+    "bomb": {
+        "chili": {
+            "damage": 150
+        },
+        "berserker": {
+            "attack": {
+                "damage": 105
+            },
+            "support": {}
+        }
+    },
+    "blues": {
+        "chili": {
+            "damage": 200
+        },
+        "marksmen": {
+            "attack": {
+                "damage": 50,
+                "slice": 2,
+                "weaken": 35
+            },
+            "support": {}
+        }
+    }
+} 
