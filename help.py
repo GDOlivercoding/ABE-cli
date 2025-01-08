@@ -46,7 +46,7 @@ class _Help:
             "No args",
         ),
         ("turns", "allies who still havent played their turn yet", "No args"),
-        ("abort", "abort this battle", "abort <CONFIRM>"),
+        ("abort", "abort this battle, followed by a confirmation prompt", "abort"),
         ("stat", "view all current statistics of target", "stat <target>"),
         ("attack", "attack target enemy", "attack <ally> [target]"),
         ("support", "use support ability on target", "support <ally> [target]"),

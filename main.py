@@ -32,8 +32,8 @@ class MainObj:
 
     def control(self, name: str) -> Iterable[str]:
         return self.jsons["controls"].content.get(name, [name])
-    
-    MAX_ALLIES = 3
+
+    MAX_ALLIES = float("inf")
 
 
 mainobj = MainObj()

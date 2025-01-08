@@ -9,6 +9,7 @@ from value_index import VALUE_INDEX
 from flags import FLAG
 
 from effects import (
+    Ambush,
     AncestralProtection,
     DamageDebuff,
     Devotion,
@@ -20,13 +21,15 @@ from effects import (
     Mirror,
     Shield,
     ShockShield,
+    ThornyPoison,
     ThunderStorm,
     ToxicPoison,
     Weaken,
 )
 
 if TYPE_CHECKING:
-    from battle import Ally, Battlefield, Enemy
+    from battle import Ally, Battlefield, Enemy, View
+
 
 @dataclass
 class PercDmgObject:
@@ -53,7 +56,7 @@ def get_chance(chance: int) -> bool:
     if chance > 100 or chance < 0:
         raise ValueError(
             f"Invalid chance parameter: {chance},"
-            " excepted and integer in range (inclusive) 0-100 (inclusive)"
+            " expected an integer in range 0-100 (inclusive)"
         )
     return random.choices([True, False], weights=[chance, 100 - chance])[0]
 
@@ -71,20 +74,13 @@ blues = AD_DICT["blues"]
 # TODO: make the getattr get the stats fully
 # so they can be modified after (to finally be able to send 50% damage)
 
+
 class AbilityHandlerObject:
-    @overload
-    def __getattr__(self, name: Literal["damage"]) -> int: ...
-    @overload
-    def __getattr__(self, name: Literal["slice"]) -> int: ...
-    @overload
-    def __getattr__(self, name: Literal["heal"]) -> int: ...
-    @overload
-    def __getattr__(self, name: str) -> Any: ...
-    def __getattr__(self, name: str) -> Any: ...
-    def __setattr__(self, name: str, value: Any) -> None: ...
-    def __delattr__(self, name: str) -> None: ...
+    name: str
+
     def sbm[T: Effect](self, effect: type[T], **kwargs) -> T:
         return effect(name=self.name, **kwargs)
+
 
 class Ability:
     def __init__(self, ability: Callable) -> None:
@@ -109,7 +105,7 @@ class Ability:
         self.ability(self, birdself, *args)
         birdself.battle.death_check()
 
-    def get(self) -> AbilityHandlerObject:
+    def get(self) -> Any:
         birdname = self.container.birdname
         classname = self.container.current_class
 
@@ -154,7 +150,6 @@ class Ability:
         return VALUE_INDEX[birdname][classname][self.typ][name]
 
 
-
 class Attack(Ability):
     typ = "attack"
 
@@ -163,6 +158,9 @@ class Attack(Ability):
     ) -> Any:
         return super().__call__(birdself, target, flags=flags)
 
+    def send(self, new: AbilityHandlerObject, birdself: View, target: View) -> None:
+        return super().send(new, birdself, target)
+
 
 class Support(Ability):
     typ = "support"
@@ -170,12 +168,16 @@ class Support(Ability):
     def __call__(self, birdself: Ally, target: Ally, flags: Sequence[FLAG] = ()) -> Any:
         return super().__call__(birdself, target, flags=flags)
 
+    def send(self, new: AbilityHandlerObject, birdself: Ally, target: Ally) -> None:
+        return super().send(new, birdself, target)
+
 
 class Chili(Ability):
     typ = "chili"
 
     def __call__(self, birdself: Ally, flags: Sequence[FLAG] = ()) -> Any:
         return super().__call__(birdself, flags=flags)
+
 
 # not a @dataclass because of attr type safety
 class BirdClass:
@@ -202,7 +204,8 @@ class BirdCollection:
     def get_class(self, classname: str) -> BirdClass:
         try:
             cls = self.classes[classname]
-        except KeyError:            raise ValueError(f"classname '{classname}' doesn't exist")
+        except KeyError:
+            raise ValueError(f"classname '{classname}' doesn't exist")
 
         self.current_class = cls.classname
         return cls
@@ -292,9 +295,9 @@ def Defensive_Formation(sprt: Support, self: Ally, target: Enemy):
 
 
 def Revenge(atk: Attack, self: Ally, target: Enemy):
-    damage = red % VALUE_INDEX["red"]["avenger"]["attack"]["damage"]
+    damage = red % atk.damage
 
-    damage = PercDmgObject(damage) % (
+    damage = PercDmgObject(int(damage)) % (
         100 + (abs(int(self.hp / (self.TOTAL_HP / 100)) - 100) * 2)
     )
 
@@ -307,9 +310,6 @@ def avenger_support(sprt: Support, self: Ally, target: Enemy):
 
     for enemy in self.battle.enemy_units.values():
         enemy.add_neg_effects(sprt.sbm(ForceTarget, turns=2, target=target))
-
-
-avenger_support.__name__ = "I_dare_you!"
 
 
 def Holy_Strike(sbm: Callable, self: Ally, target: Enemy):
@@ -327,7 +327,7 @@ def Holy_Strike(sbm: Callable, self: Ally, target: Enemy):
         heal_target.heal(actual_heal)
 
 
-def _Devotion(sprt: Support, self: Ally, target: Enemy):
+def _Devotion(sprt: Support, self: Ally, target: Ally):
     target.add_pos_effects(sprt.sbm(Devotion, turns=3, protector=self, shield=40))
 
 
@@ -364,6 +364,7 @@ def Ancestral_Protection(sprt: Support, self: Ally, target: Enemy):
 #
 #
 
+
 def Storm(atk: Attack, self: Ally, target: Enemy):
     damage = chuck % atk.damage
 
@@ -372,7 +373,7 @@ def Storm(atk: Attack, self: Ally, target: Enemy):
 
 
 def Shock_Shield(sprt: Support, self: Ally, target: Ally):
-    damage = chuck % sprt.damage  
+    damage = chuck % sprt.damage
 
     effects = sprt.sbm(ShockShield, turns=3, damage=damage)
 
@@ -380,8 +381,8 @@ def Shock_Shield(sprt: Support, self: Ally, target: Ally):
 
 
 def Energy_Drain(atk: Attack, self: Ally, target: Enemy):
-    damage = chuck % atk.damage  
-    chance = atk.dispell_chance  
+    damage = chuck % atk.damage
+    chance = atk.dispell_chance
 
     for enemy in self.battle.enemy_units.values():
 
@@ -407,7 +408,12 @@ def Acid_Rain(atk: Attack, self: Ally, target: Enemy):
     # mutability issues did infact occur i love myself im so silly :3
 
     for enemy in self.battle.enemy_units.values():
-        enemy.deal_damage(damage, self, effects=(atk.sbm(ToxicPoison, turns=3, damage=poison),), direct=True)
+        enemy.deal_damage(
+            damage,
+            self,
+            effects=(atk.sbm(ToxicPoison, turns=3, damage=poison),),
+            direct=True,
+        )
 
 
 def Healing_Rain(sprt: Support, self: Ally, target: Ally):
@@ -487,10 +493,13 @@ def Chain_Lightning(atk: Attack, self: Ally, target: Enemy):
         target = indexed_dict[target_index - 1]
         target.deal_damage(damage2, self, direct=True)
     except KeyError:
-        raise SystemError("In Chuck Wizard Chain_Lightning: based on if checks,"
-                          " expected at least 3 enemies on the battlefield"
-                          "actual amount of enemies={enemies}".format(enemies=len(self.battle.enemy_units))
-                          ) from None
+        raise SystemError(
+            "In Chuck Wizard Chain_Lightning: based on if checks,"
+            " expected at least 3 enemies on the battlefield"
+            "actual amount of enemies={enemies}".format(
+                enemies=len(self.battle.enemy_units)
+            )
+        ) from None
 
     # dirty little boilerplate checking
     try:
@@ -504,16 +513,18 @@ def Chain_Lightning(atk: Attack, self: Ally, target: Enemy):
             # in this case there are only 3 enemies on the battlefield
             pass
 
+
 def _Energize(sprt: Support, self: Ally, target: Ally):
     target.add_pos_effects(
         sprt.sbm(
-            Energize, 
+            Energize,
             turns=3,
             chili_boost=sprt.chili_boost,
             stun_chance=sprt.stun_chance,
-            stun_duration=3
+            stun_duration=3,
         )
     )
+
 
 def Thunderclap(atk: Attack, self: Ally, target: Enemy):
     damage = chuck % atk.damage
@@ -527,11 +538,13 @@ def Thunderclap(atk: Attack, self: Ally, target: Enemy):
 
         enemy.deal_damage(damage, self, direct=True)
 
+
 def Rage_Of_Thunder(sprt: Support, self: Ally, target: Ally):
     damage = chuck % sprt.damage
-    
+
     for ally in self.battle.allied_units.values():
         ally.add_pos_effects(sprt.sbm(ShockShield, turns=3, damage=damage))
+
 
 def Dancing_Spark(atk: Attack, self: Ally, target: Enemy):
     damage = chuck % atk.damage
@@ -540,16 +553,21 @@ def Dancing_Spark(atk: Attack, self: Ally, target: Enemy):
 
     target.deal_damage(damage, self, effects=(effect,))
 
+
 def Mirror_Image(sprt: Support, self: Ally, target: Ally):
-    target.add_pos_effects(sprt.sbm(Mirror, attack_damage_perc=sprt.super_atk_damage, turns=3))
+    target.add_pos_effects(
+        sprt.sbm(Mirror, attack_damage_perc=sprt.super_atk_damage, turns=3)
+    )
+
 
 # thats it for chuck
 
-# 
-# 
-# MATILDA 
-# 
 #
+#
+# MATILDA
+#
+#
+
 
 def Healing_Strike(atk: Attack, self: Ally, target: Enemy):
     damage = matilda % atk.damage
@@ -562,9 +580,97 @@ def Healing_Strike(atk: Attack, self: Ally, target: Enemy):
     for ally in self.battle.allied_units.values():
         ally.heal(actual_heal)
 
+
 def Healing_Shield(sprt: Support, self: Ally, target: Ally):
     for ally in self.battle.allied_units.values():
         ally.add_pos_effects(sprt.sbm(HealingShield, turns=3, effectiveness=sprt.heal))
+
+
+def Thorny_Vine(atk: Attack, self: Ally, target: Enemy):
+    damage = matilda % atk.damage
+    poison = matilda % atk.poison
+
+    target.deal_damage(
+        damage, self, effects=(atk.sbm(ThornyPoison, damage=poison, turns=3),)
+    )
+
+
+def Regrownth(sprt: Support, self: Ally, target: Ally):
+    main = PercDmgObject(self.TOTAL_HP) % sprt.heal
+    others = PercDmgObject(self.TOTAL_HP) % sprt.others
+
+    target.heal(main)
+
+    for ally in self.battle.allied_units.values():
+        if not ally.is_same(target):
+            ally.heal(others)
+
+
+def Royal_Order(atk: Attack, self: Ally, target: Enemy):
+    damage = matilda % atk.damage
+
+    target.deal_damage(damage, self)
+
+    for enemy in self.battle.enemy_units.values():
+        enemy.add_neg_effects(
+            atk.sbm(
+                ForceTarget,
+                target=max(self.battle.allied_units.values(), key=lambda ally: ally.hp),
+                turns=3,
+            )
+        )
+
+
+def Royal_Aid(sprt: Support, self: Ally, target: Ally):
+    heal = PercDmgObject(self.TOTAL_HP) % sprt.heal
+
+    target.cleanse()
+    target.heal(heal)
+
+
+# quick bomb
+
+
+def Enrage(atk: Attack, self: Ally, target: Enemy):
+    damage = bomb % atk.damage
+
+    bonus = self.battle.chili * 0.5
+
+    damage = PercDmgObject(int(damage)) % int(100 + bonus)
+
+    target.deal_damage(damage, self)
+
+
+def Frenzy(sprt: Support, self: Ally, target: Ally):
+    damage = PercDmgObject(target.TOTAL_HP) % 15
+
+    # XXX might break things, but its really this direct
+    target.hp -= int(damage)
+
+    for enemy in self.battle.enemy_units.values():
+        enemy.deal_damage(damage, self, direct=True)
+
+
+# quick jay jake and jim (?)
+
+
+def Volley(atk: Attack, self: Ally, target: Enemy):
+    damage = blues % atk.damage
+    slice = atk.slice
+    weaken = atk.weaken
+
+    for _ in range(slice):
+        target.deal_damage(
+            damage, self, effects=(atk.sbm(Weaken, turns=3, effectiveness=weaken),)
+        )
+
+
+def _Ambush(sprt: Support, self: Ally, target: Ally):
+    # XXX the damage parameter will become forced in the future, and it did
+    target.add_pos_effects(
+        sprt.sbm(Ambush, ambusher=self, turns=2, damage=lambda damage: int(damage / 2))
+    )
+
 
 #
 #
@@ -603,18 +709,22 @@ def Speed_Of_Light(chili: Chili, self: Ally):
         )
 
 
-def Matildas_medicine(chili: Chili, self: Ally):
+def matilda_chili(chili: Chili, self: Ally):
     battle = self.battle
     heal = chili.heal
 
+    # the reason behind is that
+    # we dont want any healing changing effects (negative)
+    # to impact this since they dont
+
     for unit in battle.allied_units.values():
         unit.cleanse()
+
+    for unit in battle.allied_units.values():
         actual = PercDmgObject(unit.TOTAL_HP) % heal
 
         unit.heal(actual)
 
-
-Matildas_medicine.__name__ = "Matilda's_medicine"
 
 def Explode(chili: Chili, self: Ally):
     damage = bomb % chili.damage
@@ -622,12 +732,13 @@ def Explode(chili: Chili, self: Ally):
     for unit in self.battle.enemy_units.values():
         unit.deal_damage(damage, self)
 
+
 def Egg_Surprise(chili: Chili, self: Ally):
     battle = self.battle
     damage = blues % chili.damage
 
-    random.choice([*battle.enemy_units.values()]).deal_damage(damage, self, direct=True)
     random.choice([*battle.enemy_units.values()]).dispell()
+    random.choice([*battle.enemy_units.values()]).deal_damage(damage, self, direct=True)
     random.choice([*battle.enemy_units.values()]).add_neg_effects(
         chili.sbm(Knock, turns=1)
     )
@@ -649,74 +760,52 @@ Red = BirdCollection(
         support=Defensive_Formation,
         classname="samurai",
     ),
+    BirdClass(attack=Revenge, support=avenger_support, classname="avenger"),
+    BirdClass(attack=Holy_Strike, support=_Devotion, classname="paladin"),
     BirdClass(
-        attack=Revenge,
-        support=avenger_support,
-        classname="avenger"
+        attack=Feral_Assault, support=Ancestral_Protection, classname="stone-guard"
     ),
-    BirdClass(
-        attack=Holy_Strike,
-        support=_Devotion,
-        classname="paladin"
-    ),
-    BirdClass(
-        attack=Feral_Assault,
-        support=Ancestral_Protection,
-        classname="stone-guard"
-    ),
-
     chili=Heroic_Strike,
     birdname="red",
 )
 
+Red.classes["avenger"].support.name = "i dare you!"
+
 Chuck = BirdCollection(
-    BirdClass(
-        attack=Storm,
-        support=Shock_Shield,
-        classname="mage"
-    ),
-    BirdClass(
-        attack=Energy_Drain,
-        support=Lightning_Fast,
-        classname="lightning-bird"
-    ),
-    BirdClass(
-        attack=Acid_Rain,
-        support=Healing_Rain,
-        classname="rainbird"
-    ),
-    BirdClass(
-        attack=Chain_Lightning,
-        support=_Energize,
-        classname="wizard"
-    ),
-    BirdClass(
-        attack=Thunderclap,
-        support=Rage_Of_Thunder,
-        classname="thunderbird"
-    ),
-    BirdClass(
-        attack=Dancing_Spark,
-        support=Mirror_Image,
-        classname="illusionist"
-    ),
-    
+    BirdClass(attack=Storm, support=Shock_Shield, classname="mage"),
+    BirdClass(attack=Energy_Drain, support=Lightning_Fast, classname="lightning-bird"),
+    BirdClass(attack=Acid_Rain, support=Healing_Rain, classname="rainbird"),
+    BirdClass(attack=Chain_Lightning, support=_Energize, classname="wizard"),
+    BirdClass(attack=Thunderclap, support=Rage_Of_Thunder, classname="thunderbird"),
+    BirdClass(attack=Dancing_Spark, support=Mirror_Image, classname="illusionist"),
     chili=Speed_Of_Light,
-    birdname="chuck"
+    birdname="chuck",
 )
 
 Matilda = BirdCollection(
-    BirdClass(
-        attack=Healing_Strike,
-        support=Healing_Shield,
-        classname="cleric"
-    ),
+    BirdClass(attack=Healing_Strike, support=Healing_Shield, classname="cleric"),
     birdname="matilda",
-    chili=Matildas_medicine
+    chili=matilda_chili,
+)
+
+Matilda.chili.name = "Matilda's Medicine"
+
+Bomb = BirdCollection(
+    BirdClass(attack=Enrage, support=Frenzy, classname="berserker"),
+    chili=Explode,
+    birdname="bomb",
+)
+
+Blues = BirdCollection(
+    BirdClass(attack=Volley, support=_Ambush, classname="marksmen"),
+    chili=Egg_Surprise,
+    birdname="blues",
 )
 
 CLASSES_DICT = {
     "red": Red,
     "chuck": Chuck,
-    "matilda": Matilda
+    "matilda": Matilda,
+    "bomb": Bomb,
+    "blues": Blues,
 }

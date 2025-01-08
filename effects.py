@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import random
 from typing import Literal, TYPE_CHECKING
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 if TYPE_CHECKING:
     from battle import View, Battlefield, Ally, Enemy
@@ -31,6 +31,7 @@ __all__ = [
 # and also they are never gonna be useful
 # the reason is, for my squishy little brain, its more readable
 # and thats the point of code and types right?
+
 
 @dataclass
 class Effect[V: View, A: View]:
@@ -82,11 +83,7 @@ class Effect[V: View, A: View]:
 
     @property
     def is_knocked(self):
-        return(
-            not self.can_attack 
-            and not self.can_support 
-            and not self.can_chili
-        )
+        return not self.can_attack and not self.can_support and not self.can_chili
 
     def on_hit(
         self, victim: V, attacker: A, damage: int, effects: Sequence[Effect]
@@ -162,12 +159,13 @@ class Effect[V: View, A: View]:
     def get_target(self, target: V, attacker: A) -> V | View:
         """For effects that change the victim, such as ForceTarget or Devotion"""
         return target
-    
+
     def on_chili(self, invoker: Ally) -> None:
         """When the rage chili is used, usually, abilities should perform after"""
 
     def after_chili(self, invoker: Ally) -> None:
         """For abilities doing things after the rage chili is used, such as bonus attacks and such"""
+
 
 def get_chance(chance: int) -> bool:
     if chance > 100 or chance < 0:
@@ -182,6 +180,7 @@ def get_chance(chance: int) -> bool:
         return False
 
     return random.choices([True, False], weights=[chance, 100 - chance])[0]
+
 
 # subclassing because lazy
 
@@ -210,8 +209,9 @@ class Shield(PosEffect):
     def on_hit(
         self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
     ):
-        eff = self.effectiveness
-        damage = int((damage / 100) * (100 - eff))
+        if victim.is_same(self.wearer):
+            eff = self.effectiveness
+            damage = int((damage / 100) * (100 - eff))
         return victim, attacker, damage, effects
 
 
@@ -237,9 +237,7 @@ class ShockShield[V: View, A: View](PosEffect):
 
     damage: int
 
-    def after_hit(
-        self, victim: V, attacker: A, damage: int, effects: Sequence[Effect]
-    ):
+    def after_hit(self, victim: V, attacker: A, damage: int, effects: Sequence[Effect]):
         if victim.is_same(self.wearer):
             attacker.deal_damage(self.damage, self.wearer, direct=True)
 
@@ -250,13 +248,10 @@ class ThornyShield[V: View, A: View](PosEffect):
 
     percentage: int
 
-    def on_hit(
-        self, victim: V, attacker: A, damage: int, effects: Sequence[Effect]
-    ) -> tuple[V, A, int, Sequence[Effect]]:
-
-        reflect = int((damage / 100) * self.percentage)
-        attacker.deal_damage(reflect, self.wearer)
-        return victim, attacker, damage, effects
+    def after_hit(self, victim: V, attacker: A, damage: int, effects: Sequence[Effect]):
+        if victim.is_same(self.wearer):
+            reflect = int((damage / 100) * self.percentage)
+            attacker.deal_damage(reflect, self.wearer)
 
 
 @dataclass
@@ -303,6 +298,7 @@ class Mimic[T: View](NegEffect):
 
         return 0
 
+
 @dataclass
 class Poison(NegEffect):
     """A Poison base, if you aren't familiar with poison, it is damage overtime"""
@@ -321,13 +317,16 @@ class Poison(NegEffect):
 
         self.wearer.deal_damage(self.damage, self.wearer, direct=True)
 
+
 @dataclass
 class ToxicPoison(Poison):
     """source: rainbird, matey"""
 
+
 @dataclass
 class ThornyPoison(Poison):
     """source: druid, valetine's knight? its rose knight -_-"""
+
 
 @dataclass
 class GooeyPoison(Poison):
@@ -399,7 +398,7 @@ class Devotion[T: View, P: View](PosEffect):
     def get_target(self, target: T, attacker: View) -> P | T:
         if target.is_same(self.wearer):
             return self.protector
-        
+
         return target
 
 
@@ -425,9 +424,10 @@ class HealingShield(PosEffect):
     def after_hit(
         self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
     ):
-
-        for unit in self.wearer.battle.allied_units.values():
-            unit.heal(int((damage / 100) * self.effectiveness))
+        if victim.is_same(self.wearer):
+            print("Healing shield attempts to heal")
+            for unit in self.wearer.battle.allied_units.values():
+                unit.heal(int((damage / 100) * self.effectiveness))
 
 
 @dataclass
@@ -471,6 +471,12 @@ class Ambush(PosEffect):
     # once i develop them more
     ambusher: Ally
 
+    # the damage parameter should be a Callable which takes int and returns int
+    # it receives the damage and returns the actual damage to deal
+    # usually can just be a lambda
+
+    damage: Callable[[int], int]
+
     # i know that the return type just means "-> View", b-but its more weadable !!
     def get_target[T: View](self, target: T, attacker: View) -> View | T:
 
@@ -482,14 +488,14 @@ class Ambush(PosEffect):
     def after_hit(
         self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
     ) -> None:
-        if victim.is_same(self.wearer) and isinstance(attacker, Enemy):
+        if victim.is_same(self.wearer):
 
-            # temporary fix
+            # temporary fix, XXX maybe not temporary anymore?
             atk = self.ambusher._attack.get()
 
-            atk.damage = int(atk.damage / 2)
+            atk.damage = self.damage(atk.damage)
 
-            self.ambusher._attack.send(atk, attacker)
+            self.ambusher._attack.send(atk, victim, attacker)
 
 
 @dataclass
@@ -517,38 +523,49 @@ class AncestralProtection(PosEffect):
             )
         )
 
+
 @dataclass
 class Energize(PosEffect):
     chili_boost: int
     stun_chance: int
     stun_duration: int
 
-    def after_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]) -> None:
+    def after_hit(
+        self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
+    ) -> None:
         victim.battle.chili += self.chili_boost
 
         if get_chance(self.stun_chance):
             attacker.add_neg_effects(Knock(name=self.name, turns=self.stun_duration))
 
+
 @dataclass
 class Mirror(PosEffect):
     """Ally attacks again after attacking with lower damage, source: illusionist"""
+
     atk_damage_perc: int
 
     # XXX counter could attack before mirror gets activated
-    def after_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]) -> None:
+    def after_hit(
+        self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
+    ) -> None:
         if attacker.is_same(self.wearer) and isinstance(attacker, Ally):
             get = attacker._class.attack.get()
 
             get.damage = int((get.damage / 100) * self.atk_damage_perc)
 
-            attacker._class.attack.send(get)
+            attacker._attack.send(get, attacker, victim)
+
 
 @dataclass
 class ThunderStorm(NegEffect):
     """when target suffers damage all allies suffer less damage"""
+
     shared_damage_perc: int
 
-    def after_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]) -> None:
+    def after_hit(
+        self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
+    ) -> None:
         if victim.is_same(self.wearer):
             shared_damage = int((damage / 100) * self.shared_damage_perc)
 

@@ -1,5 +1,7 @@
 {
+    "red": "paladin",
+    "chuck": "wizard",
     "matilda": "cleric",
-    "red": "guardian",
-    "chuck": "lightning-bird"
+    "blues": "marksmen",
+    "bomb": "berserker"
 }

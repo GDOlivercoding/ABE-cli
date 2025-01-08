@@ -2,6 +2,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterable
 from enum import Enum, auto
+import random
 from typing import Final, Protocol, Self, Sequence, TYPE_CHECKING, runtime_checkable
 from rich.console import Console
 from rich import print
@@ -9,6 +10,7 @@ from rich.table import Table as RichTable
 from value_index import BIRDS_TABLE
 from help import help
 from new_classes import CLASSES_DICT
+
 
 class Table(RichTable):
     def __enter__(self):
@@ -89,7 +91,7 @@ class View(ABC):
     @property
     def hp(self):
         return self._hp
-    
+
     @hp.setter
     def hp(self, setter: ConvertibleToInt):
         self._hp = int(setter)
@@ -153,23 +155,36 @@ class View(ABC):
             T[View] the source of the damage, usually the unit attacking (attacker)
 
             int the totalized finalized damage that the unit took
-            
+
             Seq[Effect] a list of effects applied to the unit
         ]
         """
 
         damage = int(damage)
+        print(
+            f"{source.name} tries to attack {self.name}!"
+            f"\ndamage={damage}, effects={", ".join(effect.name for effect in effects)}"
+        )
+
         target = self if direct else self.get_target(source)
 
         for effect_vals in [eff.effects.values() for eff in self.battle.units.values()]:
             for effect in effect_vals:
                 target, source, damage, effects = effect.on_hit(
-                    self, source, damage, effects
+                    target, source, damage, effects
                 )
 
+        print(
+            f"new: damage={damage}, effects={", ".join(effect.name for effect in effects)}"
+        )
+
+        print(f"old: {self.battle.chili=}, {target.hp=}")
         self.battle.chili += 5
         target.hp -= damage
+        print(f"new: {self.battle.chili=}, {target.hp=}")
+
         effects = list(target.add_neg_effects(*effects))
+        print(f"actual effects: {", ".join(effect.name for effect in effects)}\n")
 
         for effect_vals in [eff.effects.values() for eff in self.battle.units.values()]:
             for effect in effect_vals:
@@ -179,13 +194,18 @@ class View(ABC):
 
     def heal(self, heal: ConvertibleToInt):
         heal = int(heal)
+        print(f"An unknown source tries to heal {self.name}, heal={heal}")
         target = self
 
         for effect_vals in [eff.effects.values() for eff in self.battle.units.values()]:
             for effect in effect_vals:
                 heal = effect.on_heal(heal)
 
+        print(f"Actual heal: {heal}")
+
+        print(f"old: {target.hp=}")
         target.hp += heal
+        print(f"new: {target.hp=}")
 
     def get_target(self, attacker: View) -> Self | View:
         """
@@ -229,7 +249,7 @@ class View(ABC):
                 del self.neg_effects[name]
 
             effect.wearer = self
-            effect.is_pos = False # if its an undefined effect
+            effect.is_pos = False  # if its an undefined effect
 
             yield effect
             self.neg_effects[effect.name] = effect
@@ -261,11 +281,13 @@ class View(ABC):
     def is_dead(self) -> bool:
         return self.hp <= 0
 
+
 # here Ally is going to be a class for ally allies
 # and its abilities are specified in attrs
 
 # but enemies are too unique
 # so they will be based off subclasses
+
 
 class Ally(View):
     def __init__(self, name: str, _class: str) -> None:
@@ -301,13 +323,17 @@ class Ally(View):
     def chili(self):
         self.bird.chili(self)
 
+
 class Pig:
     can_chili = False
     name = "Pig"
-    def __getattr__(self, name: str): 
+
+    def __getattr__(self, name: str):
         pass
 
+
 pig = Pig()
+
 
 class Enemy(View):
     """
@@ -316,6 +342,7 @@ class Enemy(View):
 
     for now ill decide for enemies with a singular attack
     """
+
     def __init__(self, name: str, hp: int, damage: int, flags={}):
         self.name = name.lower()
         self._hp = hp
@@ -324,7 +351,7 @@ class Enemy(View):
         self.is_ally: Final = False
         self.neg_effects: dict[str, Effect] = {}
         self.pos_effects: dict[str, Effect] = {}
-        self.passives = {pig.name: pig} # planned for the future
+        self.passives = {pig.name: pig}  # planned for the future
 
     def attack(self):
         self.set_target()
@@ -347,23 +374,28 @@ class result(Enum):
     interface_aborted = auto()
     no_result = auto()
 
+
 class DummyControlSet:
     def control(self, name: str) -> Iterable[str]:
         return (name,)
-    
+
+
 dummy_control = DummyControlSet()
+
 
 @runtime_checkable
 class SupportsControl(Protocol):
     def control(self, name: str) -> Iterable[str]: ...
 
+
 class Battlefield:
-    def __init__(self, 
-                 *waves: list[Enemy], 
-                 allies: Sequence[Ally], 
-                 chili=0,
-                 control_set: SupportsControl = dummy_control
-        ):
+    def __init__(
+        self,
+        *waves: list[Enemy],
+        allies: Sequence[Ally],
+        chili=0,
+        control_set: SupportsControl = dummy_control,
+    ):
         """
         A battlefield representing an angry birds epic battle
 
@@ -424,7 +456,7 @@ class Battlefield:
         """
         if not waves:
             raise ValueError("No waves")
-        
+
         self.control_set = control_set
 
         self.WAVES = waves
@@ -433,7 +465,7 @@ class Battlefield:
         # next(self.exhaust_waves) everytime we win a wave
         # so turns out list(iter) is exhaustive too sooooooo
         self.exhaust_waves = list(waves)
-        del self.exhaust_waves[0] # delete the first wave, that is already loaded
+        del self.exhaust_waves[0]  # delete the first wave, that is already loaded
 
         self._id = -1
 
@@ -450,7 +482,7 @@ class Battlefield:
         self.enemy_units = enemies
         self.turn = 0
         self._chili = chili  # in procents
-        self.result: result = result.no_result
+        self.result = result.no_result
 
         for unit in self.units.values():
             unit.battle = self
@@ -522,7 +554,7 @@ class Battlefield:
                 f" allies={len(self.allied_units)},"
                 f" enemies={len(self.enemy_units)}"
             )
-        
+
         control = self.control_set.control
 
         while True:
@@ -561,14 +593,12 @@ class Battlefield:
                     self.death_check()
                     if self.result != result.no_result:
                         return self.result
-                    
-            
 
             while True:
-                
-                #print("At the start of the turn there are {n} unplayed allies".format(
+
+                # print("At the start of the turn there are {n} unplayed allies".format(
                 #    n=sum(1 for unit in self.allied_units.values() if unit.name not in self.played))
-                #)
+                # )
                 self.view_battle()
 
                 check = [
@@ -576,7 +606,7 @@ class Battlefield:
                     for unit in self.allied_units.values()
                     if unit.clsname not in self.played
                 ]
-                
+
                 temp = [unit.name for unit in check]
 
                 for unit in check:
@@ -621,10 +651,16 @@ class Battlefield:
 
                     if _marker:
                         if len(effects) == 1:
-                            print(f"'{ally.name}' can't attack because of '{effects[0]}' effect.")
+                            print(
+                                f"'{ally.name}' can't attack because of '{effects[0]}' effect."
+                            )
                         else:
-                            string_effects = ", ".join(f"'{effect}'" for effect in effects)
-                            print(f"'{ally.name}' can't attack because of {string_effects} effects.")
+                            string_effects = ", ".join(
+                                f"'{effect}'" for effect in effects
+                            )
+                            print(
+                                f"'{ally.name}' can't attack because of {string_effects} effects."
+                            )
 
                         continue
 
@@ -633,8 +669,8 @@ class Battlefield:
                     if enemy is None:
                         continue
 
-                    ally.attack(self.enemy_units[enemy.name])
                     self.played.append(ally.clsname)
+                    ally.attack(self.enemy_units[enemy.name])
                     if self.result != result.no_result:
                         return self.result
 
@@ -669,10 +705,16 @@ class Battlefield:
 
                     if _marker:
                         if len(effects) == 1:
-                            print(f"'{ally.name}' can't use support because of '{effects[0]}' effect.")
+                            print(
+                                f"'{ally.name}' can't use support because of '{effects[0]}' effect."
+                            )
                         else:
-                            string_effects = ", ".join(f"'{effect}'" for effect in effects)
-                            print(f"'{ally.name}' can't use support because of {string_effects} effects.")
+                            string_effects = ", ".join(
+                                f"'{effect}'" for effect in effects
+                            )
+                            print(
+                                f"'{ally.name}' can't use support because of {string_effects} effects."
+                            )
 
                         continue
 
@@ -681,8 +723,9 @@ class Battlefield:
                     if target is None:
                         continue
 
-                    ally.support(self.allied_units[target.clsname])
                     self.played.append(ally.clsname)
+                    ally.support(self.allied_units[target.clsname])
+
                     if self.result != result.no_result:
                         return self.result
 
@@ -712,21 +755,29 @@ class Battlefield:
 
                     if _marker:
                         if len(effects) == 1:
-                            print(f"'{ally.name}' can't use chili because of '{effects[0]}' effect.")
+                            print(
+                                f"'{ally.name}' can't use chili because of '{effects[0]}' effect."
+                            )
                         else:
-                            string_effects = ", ".join(f"'{effect}'" for effect in effects)
-                            print(f"'{ally.name}' can't use chili because of {string_effects} effects.")
+                            string_effects = ", ".join(
+                                f"'{effect}'" for effect in effects
+                            )
+                            print(
+                                f"'{ally.name}' can't use chili because of {string_effects} effects."
+                            )
 
                         continue
 
                     if self.chili != 100:
-                        print(f"Chili is not charged up to 100%, chili is at {self.chili}%")
+                        print(
+                            f"Chili is not charged up to 100%, chili is at {self.chili}%"
+                        )
                         continue
 
-                    ally.chili()
-
-                    self.chili = 0
                     self.played.append(ally.clsname)
+                    ally.chili()
+                    self.chili = 0
+
                     if self.result != result.no_result:
                         return self.result
 
@@ -749,10 +800,7 @@ class Battlefield:
                             table.add_row(
                                 target.name,
                                 f"{target.hp}/{target.TOTAL_HP}",
-                                (
-                                    ", ".join(target.effects)
-                                    or "No active effects"
-                                ),
+                                (", ".join(target.effects) or "No active effects"),
                             )
                     else:
                         print(f"No unit found for '{target}'")
@@ -816,7 +864,7 @@ class Battlefield:
             for enemy in list(self.enemy_units.values()):
                 try:
                     self.enemy_units[enemy.name]
-                except KeyError: # the enemy is dead
+                except KeyError:  # the enemy is dead
                     continue
 
                 enemy.attack()
@@ -829,21 +877,21 @@ class Battlefield:
     def startswith_unit(self, unit: str) -> Ally | Enemy | None:
         if unit in self.units:
             return self.units[unit]
-        
+
         saved = ""
         for allyname in self.units:
             if allyname.startswith(unit):
                 if saved:
                     print(f"There are two or more units starting with '{unit}'!")
-                    return None          
-                saved = unit
-        
+                    return None
+                saved = allyname
+
         if not saved:
             print(f"Didnt find a unit matching or starting with '{unit}'!")
             return None
-        
+
         return self.units[saved]
-    
+
     def startswith_ally(self, ally: str) -> Ally | None:
         s = self.startswith_unit(ally)
         if isinstance(s, Enemy):
@@ -851,7 +899,7 @@ class Battlefield:
             s = None
 
         return s
-    
+
     def startswith_enemy(self, enemy: str) -> Enemy | None:
         s = self.startswith_unit(enemy)
         if isinstance(s, Ally):
@@ -868,7 +916,11 @@ class Battlefield:
 
             for ally in self.allied_units.values():
                 allies.add_row(
-                    ally.clsname,
+                    (
+                        ally.clsname
+                        if ally.clsname in self.played
+                        else f"[b]{ally.clsname}[/b]"
+                    ),  # unplayed allies are bold, literally...
                     f"{ally.hp}/{ally.TOTAL_HP}",
                     ", ".join(ally.effects),
                 )
@@ -896,6 +948,7 @@ class Battlefield:
 
         self.enemy_units = {enemy.name: enemy for enemy in wave}
         self.wave_int += 1
+        self.played = []
 
 
 def battle_interface(mainobj: "MainObj") -> result:
@@ -910,21 +963,21 @@ def battle_interface(mainobj: "MainObj") -> result:
     }
     PICKED: dict[str, str] = fp.content
 
-    CLASSES = {cls: bird 
-               for bird, classes in CHOICES.items() 
-               for cls in classes}
+    CLASSES = {cls: bird for bird, classes in CHOICES.items() for cls in classes}
 
     if PICKED:
         with Table(title="Currently Picked allies") as table:
-                    table.add_column("Name")
-                    table.add_column("Class")
+            table.add_column("Name")
+            table.add_column("Class")
 
-                    for name, cls in PICKED.items():
-                        table.add_row(name, cls)
+            for name, cls in PICKED.items():
+                table.add_row(name, cls)
     else:
-        print("Currently, you have no picked allies!"
-              "\nuse the pick command to pick some"
-              "\nor type help for help\n")
+        print(
+            "Currently, you have no picked allies!"
+            "\nuse the pick command to pick some"
+            "\nor type help for help\n"
+        )
 
     while True:
         _INPUT = input("battle> ")
@@ -977,13 +1030,13 @@ def battle_interface(mainobj: "MainObj") -> result:
                     print(f"Class '{cls}' doesn't exist")
                     continue
 
-                try:
-                    CLASSES_DICT[name].get_class(cls)
-                except:
-                    print("Class unavailable :(")
-                    continue
-
                 name = CLASSES[cls]
+
+            try:
+                CLASSES_DICT[name].get_class(cls)
+            except (KeyError, ValueError):
+                print(f"class {cls} is unavailable... for now")
+                continue
 
             PICKED[name] = cls
 
@@ -1009,6 +1062,10 @@ def battle_interface(mainobj: "MainObj") -> result:
 
                 name = CLASSES[cls]
 
+            if name not in PICKED:
+                print(f"Class {cls} is not picked.")
+                continue
+
             del PICKED[name]
 
             print(f"removed '{name}' with '{cls}' class")
@@ -1019,8 +1076,10 @@ def battle_interface(mainobj: "MainObj") -> result:
                 continue
 
             elif len(PICKED) > mainobj.MAX_ALLIES:
-                print(f"Maximum amount of allies exceeded,"
-                      f"\nYou may bring at most {mainobj.MAX_ALLIES} allies.")
+                print(
+                    f"Maximum amount of allies exceeded,"
+                    f"\nYou may bring at most {mainobj.MAX_ALLIES} allies."
+                )
                 continue
 
             else:
@@ -1029,11 +1088,29 @@ def battle_interface(mainobj: "MainObj") -> result:
 
                 # dummy testing battle
                 battle = Battlefield(
-                    [Enemy("dummy", 200, 10), Enemy("dummy2", 100, 20)],
-                    [Enemy(f"dummy{i}", 50, 3) for i in range(10)],
+                    [Enemy(name=f"dummy{i}", hp=10, damage=10) for i in range(7)],
                     allies=[Ally(name, cls) for name, cls in PICKED.items()],
-                    control_set=mainobj
+                    control_set=mainobj,
                 )
+
+                _range = 20
+
+                for i in range(5, 101):
+                    mul = i * 10
+                    l = []
+                    for _ in range(7):
+                        l.append(
+                            Enemy(
+                                f"dummy{_}{i}",
+                                hp=random.choice(
+                                    range(mul - _range, mul + _range + 1, _range)
+                                ),
+                                damage=random.choice(
+                                    range(mul - _range, mul + _range + 1, _range)
+                                ),
+                            )
+                        )
+                    battle.exhaust_waves.append(l)
 
                 return battle.start_battle()
 
