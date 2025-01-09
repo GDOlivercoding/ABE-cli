@@ -159,3 +159,6 @@ TODO 05.01.
 improve flag system
 the way to change certain attributes like damage
 it is trash
+
+08.01. make highlighter interface
+highlighter not working im tired

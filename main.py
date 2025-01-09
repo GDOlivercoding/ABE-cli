@@ -1,10 +1,17 @@
 from __future__ import annotations
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass, field
 import json
 from battle import battle_interface, result as res
 from controls import controls_interface
 from pathlib import Path
 
+highlighters: dict[str, Callable[[str], str]] = {
+    "bold": lambda t: f"[b]{t}[/b]",
+    "italic": lambda t: f"[italic]{t}[/italic]",
+    "strikethrough": lambda t: f"[strike]{t}[/strike]",
+    "underline": lambda t: f"[underline]{t}[/underline]",
+}
 
 class JSON(Path):
     def __init__(self, *args) -> None:
@@ -18,6 +25,13 @@ class JSON(Path):
         else:
             self.write_text(json.dumps(data, indent=4))
 
+@dataclass
+class Highlighter:
+    current: dict[str, Callable[[str], str]] = field(default_factory=dict)
+    switch: bool = False
+
+    def __post_init__(self):
+        self.highlighters = highlighters
 
 class MainObj:
     def __init__(self) -> None:
@@ -29,6 +43,13 @@ class MainObj:
             self.jsons[path.stem] = JSON(path)
 
         self.fp = Path(__file__)
+
+        self.highlighter = Highlighter(
+            current={name: highlighters[name] 
+                     for name in 
+                     self.jsons["general"].content["highlighter"]["types"]},
+            switch=self.jsons["general"].content["highlighter"]["switch"]
+        )
 
     def control(self, name: str) -> Iterable[str]:
         return self.jsons["controls"].content.get(name, [name])

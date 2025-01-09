@@ -151,13 +151,17 @@ class View(ABC):
 
         for effect_vals in [eff.effects.values() for eff in self.battle.units.values()]:
             for effect in effect_vals:
-                heal = effect.on_heal(heal)
+                heal = effect.on_heal(target=target, heal=heal)
 
         print(f"Actual heal: {heal}")
 
         print(f"old: {target.hp=}")
         target.hp += heal
         print(f"new: {target.hp=}")
+
+        for effect_vals in [eff.effects.values() for eff in self.battle.units.values()]:
+            for effect in effect_vals:
+                effect.after_heal(target=target, heal=heal)
 
     def get_target(self, attacker: View) -> Self | View:
         """
@@ -347,6 +351,7 @@ class Battlefield:
         allies: Sequence[Ally],
         chili=0,
         control_set: SupportsControl = dummy_control,
+        highlighter
     ):
         """
         A battlefield representing an angry birds epic battle
@@ -410,14 +415,13 @@ class Battlefield:
             raise ValueError("No waves")
 
         self.control_set = control_set
+        self.highlighter = highlighter
 
         self.WAVES = waves
         self.wave_int = 1
 
-        # next(self.exhaust_waves) everytime we win a wave
-        # so turns out list(iter) is exhaustive too sooooooo
         self.exhaust_waves = list(waves)
-        del self.exhaust_waves[0]  # delete the first wave, that is already loaded
+        del self.exhaust_waves[0] 
 
         self._id = -1
 
@@ -547,10 +551,6 @@ class Battlefield:
                         return self.result
 
             while True:
-
-                # print("At the start of the turn there are {n} unplayed allies".format(
-                #    n=sum(1 for unit in self.allied_units.values() if unit.name not in self.played))
-                # )
                 self.view_battle()
 
                 check = [
@@ -637,10 +637,6 @@ class Battlefield:
                         target = ally
                     else:
                         target = args[0]
-
-                    if "-help" in args or "-h" in args:
-                        print(help["passive"])
-                        continue
 
                     ally = self.startswith_ally(ally)
 
@@ -769,7 +765,7 @@ class Battlefield:
                         )
                         if i == "CONFIRM":
                             return result.game_aborted
-                        elif i.lower() == "no":
+                        elif i == "no":
                             break
                         else:
                             print("Please input CONFIRM or no\n")
@@ -867,12 +863,17 @@ class Battlefield:
             allies.add_column("Effects")
 
             for ally in self.allied_units.values():
+                should_we_do_it = self.highlighter.switch == ally.clsname not in self.played
+
+                if should_we_do_it:
+                    string = ally.clsname
+                    for format in self.highlighter.current.values():
+                        string = format(string)
+                else:
+                    string = ally.clsname
+
                 allies.add_row(
-                    (
-                        ally.clsname
-                        if ally.clsname in self.played
-                        else f"[b]{ally.clsname}[/b]"
-                    ),  # unplayed allies are bold, literally...
+                    string,
                     f"{ally.hp}/{ally.TOTAL_HP}",
                     ", ".join(ally.effects),
                 )
@@ -926,7 +927,7 @@ def battle_interface(mainobj: "MainObj") -> result:
                 table.add_row(name, cls)
     else:
         print(
-            "Currently, you have no picked allies!"
+            "\nCurrently, you have no picked allies!"
             "\nuse the pick command to pick some"
             "\nor type help for help\n"
         )
@@ -1035,7 +1036,7 @@ def battle_interface(mainobj: "MainObj") -> result:
                 continue
 
             else:
-                print("Battle started!\n")
+                print("Battle started!")
                 fp.save(PICKED)
 
                 # dummy testing battle
@@ -1043,6 +1044,7 @@ def battle_interface(mainobj: "MainObj") -> result:
                     [Enemy(name=f"dummy{i}", hp=10, damage=10) for i in range(7)],
                     allies=[Ally(name, cls) for name, cls in PICKED.items()],
                     control_set=mainobj,
+                    highlighter=mainobj.highlighter
                 )
 
                 _range = 20

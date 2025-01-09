@@ -5,7 +5,7 @@ from typing import Literal, TYPE_CHECKING
 from collections.abc import Callable, Sequence
 
 if TYPE_CHECKING:
-    from battle import View, Battlefield, Ally, Enemy
+    from battle import View, Battlefield, Ally, Enemy, ConvertibleToInt
 
 __all__ = [
     "Shield",
@@ -125,12 +125,15 @@ class Effect[V: View, A: View]:
         triggered before it gets removed and after it gets marked for deletion
         """
 
-    def on_heal(self, heal: int):
+    def on_heal(self, target: View, heal: int) -> int:
         """
-        Triggered when the unit with this effect gets healed,
+        Triggered when a unit gets healed,
         `target` is the unit with the effect, `heal` is the amount to heal
         """
         return heal
+    
+    def after_heal(self, target: View, heal: int) -> None:
+        """Triggered after the heal count get finalized, cannot return to change healing"""
 
     def on_cleanse(self):
         """
@@ -173,17 +176,11 @@ def get_chance(chance: int) -> bool:
             f"Invalid chance parameter: {chance},"
             " excepted and integer in range (inclusive) 0-100 (inclusive)"
         )
-
-    if chance == 100:
-        return True
-    elif chance == 0:
-        return False
-
+    
     return random.choices([True, False], weights=[chance, 100 - chance])[0]
 
 
-# subclassing because lazy
-
+# subclassing
 
 class PosEffect(Effect):
     is_pos = True
@@ -220,7 +217,7 @@ class ForceTarget[T: View](UndefEffect):
     """
     Force the wearer of the effect to target an enemy unit,
     can be both positive and negative, usually wore by enemies
-    source: red(knight), marine knight
+    source: red(knight), marine knight, rogue leader
     """
 
     target: T
@@ -381,7 +378,7 @@ del Stun
 
 
 @dataclass
-class Devotion[T: View, P: View](PosEffect):
+class Devotion[T: View, P: View](Shield):
     """
     `protector` will take attacks instead of the wearer and the wearer will get a `shield`% shield for turns
     source: paladin, clockwork knight
@@ -390,10 +387,8 @@ class Devotion[T: View, P: View](PosEffect):
     protector: P
     shield: int = 0
 
-    # XXX DO NOT USE POST INIT, I REPEAT, DO NOT USE POST INIT, USE ON_ENTER, might want to rethink effects combined with another effect
     def on_enter(self):
-        if self.shield:
-            self.wearer.add_pos_effects(Shield(self.name, self.turns, self.shield))
+        self.effectiveness = self.shield
 
     def get_target(self, target: T, attacker: View) -> P | T:
         if target.is_same(self.wearer):
@@ -454,8 +449,7 @@ class ChiliBlock(NegEffect):
     source: ice / freeze pig ?
     """
 
-    def __post_init__(self):
-        self.can_chili = False
+    can_chili: Literal[False] = field(init=False, default=False)
 
 
 @dataclass
@@ -582,3 +576,48 @@ class ThunderStorm(NegEffect):
                         continue
 
                     ally.deal_damage(shared_damage, self.wearer, direct=True)
+
+@dataclass
+class LifeDrain(NegEffect):
+    """
+    Attackers heal when dealing damage to suffering victim
+
+    param drain should be a Callable which takes
+    the victim (self.wearer)
+    the attaclker
+    and the amount of damage deal
+
+    and return the amount to heal (of type ConvertibleToInt)
+    can be int, DamageObject or another custom object
+    """
+    drain: Callable[[View, View, int], ConvertibleToInt]
+
+    def after_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]) -> None:
+        if not victim.is_same(self.wearer):
+            return
+        
+        heal = self.drain(victim, attacker, damage)
+
+        attacker.heal(heal)
+
+@dataclass
+class LinkedHeal(PosEffect):
+
+    def __post_init__(self):
+        self.lock = False
+
+    def on_heal(self, target: View, heal: int):
+        if self.lock:
+            self.lock = False
+            return
+        
+        if target.is_ally:
+            for ally in target.battle.allied_units.values():
+                self.lock = True
+                ally.heal(heal)
+
+        else:
+            for enemy in target.battle.enemy_units.values():
+                self.lock = True
+                enemy.heal(heal)
+        

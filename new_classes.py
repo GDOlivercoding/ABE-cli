@@ -18,6 +18,8 @@ from effects import (
     ForceTarget,
     HealingShield,
     Knock,
+    LifeDrain,
+    LinkedHeal,
     Mirror,
     Shield,
     ShockShield,
@@ -627,9 +629,26 @@ def Royal_Aid(sprt: Support, self: Ally, target: Ally):
     target.cleanse()
     target.heal(heal)
 
+def Angelic_Touch(atk: Attack, self: Ally, target: Enemy):
+    damage = matilda % atk.damage
+    slice = atk.slice
+    heal = atk.heal
+
+    drain = lambda ally, enemy, damage: int((ally.TOTAL_HP / 100) * heal)
+
+    for _ in range(slice):
+        target.deal_damage(damage, self, effects=(atk.sbm(LifeDrain, turns=3, drain=drain),))
+
+def Spirit_Link(sprt: Support, self: Ally, target: Ally):
+    effect = sprt.sbm(LinkedHeal, turns=3)
+
+    if self.is_same(target):
+        return # pro self use fr
+
+    self.add_pos_effects(effect)
+    target.add_pos_effects(effect)
 
 # quick bomb
-
 
 def Enrage(atk: Attack, self: Ally, target: Enemy):
     damage = bomb % atk.damage
@@ -784,6 +803,8 @@ Chuck = BirdCollection(
 
 Matilda = BirdCollection(
     BirdClass(attack=Healing_Strike, support=Healing_Shield, classname="cleric"),
+    BirdClass(attack=Thorny_Vine, support=Regrownth, classname="druid"),
+    BirdClass(attack=Royal_Order, support=Royal_Aid, classname="princess"),
     birdname="matilda",
     chili=matilda_chili,
 )

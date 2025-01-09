@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from main import MainObj
 
-
 def controls_interface(mainobj: "MainObj"):
     controls_file = mainobj.jsons["controls"]
     presets_file = mainobj.jsons["preset-controls"]
@@ -26,6 +25,9 @@ def controls_interface(mainobj: "MainObj"):
     CHANGES_BEEN_MADE = False
 
     control = mainobj.control
+
+    highlighter = mainobj.highlighter
+    highlighters = highlighter.highlighters
 
     print()
     while True:
@@ -120,6 +122,12 @@ def controls_interface(mainobj: "MainObj"):
 
                     presets_file.content = PRESETS
                     presets_file.save()
+
+                    general = mainobj.jsons["general"]
+                    content = general.content
+                    content["highlighter"]["types"] = highlighter.current.keys()
+                    content["highlighter"]["switch"] = highlighter.switch
+                    general.save(content)
 
                     print("Success")
                     CHANGES_BEEN_MADE = False
@@ -248,3 +256,19 @@ def controls_interface(mainobj: "MainObj"):
 
                     else:
                         print("Invalid input")
+
+            elif command == "highlighter":
+                high, *args = parts
+
+                if not args:
+                    print("Missing arguments.")
+                    continue
+
+                item, value = args
+
+                if item == "switch":
+                    highlighter.switch = True if args[0].capitalize() == "True" else False
+
+                else:
+                    if value in highlighters:
+                        highlighter.current[item] = highlighters[item]
