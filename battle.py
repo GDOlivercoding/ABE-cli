@@ -253,10 +253,7 @@ class Ally(View):
         self.bird = CLASSES_DICT[name]
         self._class = self.bird.get_class(_class)
 
-        # TODO add hp to classes
-        # dummy health to test
-        self.TOTAL_HP = 100
-        self._hp = self.TOTAL_HP
+        self.TOTAL_HP = self._hp = self.bird.TOTAL_HP
 
         self._attack = self._class.attack
         self._support = self._class.support

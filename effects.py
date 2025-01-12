@@ -620,4 +620,3 @@ class LinkedHeal(PosEffect):
             for enemy in target.battle.enemy_units.values():
                 self.lock = True
                 enemy.heal(heal)
-        

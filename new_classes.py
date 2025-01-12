@@ -63,10 +63,18 @@ def get_chance(chance: int) -> bool:
     return random.choices([True, False], weights=[chance, 100 - chance])[0]
 
 
-D: dict = json.load(Path(__file__).parent.joinpath("data", "AD.json").open("r"))
-del D["BASE"]
+data_dir = (Path(__file__).parent / "data").resolve()
 
-AD_DICT = {name: PercDmgObject(val) for name, val in D.items()}
+AD: dict = json.load(data_dir.joinpath("AD.json").open("r"))
+HP: dict = json.load(data_dir.joinpath("HP.json").open("r"))
+
+if any(val == 0 for val in HP.items() if not isinstance(val, (dict, tuple, list))):
+    HP = HP["BASE"]
+
+if any(val == 0 for val in AD.items() if not isinstance(val, (dict, tuple, list))):
+    AD = AD["BASE"]
+
+AD_DICT = {name: PercDmgObject(val) for name, val in AD.items()}
 red = AD_DICT["red"]
 chuck = AD_DICT["chuck"]
 matilda = AD_DICT["matilda"]
@@ -196,6 +204,8 @@ class BirdCollection:
 
         for cls in classes:
             cls.attack.container = cls.support.container = self
+
+        self.TOTAL_HP = self.hp = HP[birdname]
 
         self.classes = {cls.classname: cls for cls in classes}
         self.chili = Chili(chili)

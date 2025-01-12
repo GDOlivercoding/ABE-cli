@@ -1,15 +1,15 @@
 {
     "BASE": {
-        "red": 50,
-        "chuck": 50,
-        "matilda": 50,
-        "bomb": 50,
-        "blues": 50
+        "red": 66,
+        "chuck": 94,
+        "matilda": 66,
+        "bomb": 103,
+        "blues": 103
     },
 
-    "red": 50,
-    "chuck": 50,
-    "matilda": 50,
-    "bomb": 50,
-    "blues": 50
+    "red": 0,
+    "chuck": 0,
+    "matilda": 0,
+    "bomb": 0,
+    "blues": 0
 }
