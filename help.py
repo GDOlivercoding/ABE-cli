@@ -1,8 +1,7 @@
 from collections.abc import Sequence
-from pathlib import Path
-from typing import TYPE_CHECKING
-from rich.table import Table
+
 from rich.markup import escape
+from rich.table import Table
 
 
 class TableMaker:
@@ -25,7 +24,6 @@ class TableMaker:
 
 
 class _Help:
-
     def iter(self) -> list[str]:
         return [*self.__dict__.keys()]
 
@@ -111,5 +109,6 @@ class _Help:
     )
 
     controls_interface = controls_interface.dump()
+
 
 help = _Help()

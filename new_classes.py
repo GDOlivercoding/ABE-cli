@@ -1,12 +1,11 @@
 from __future__ import annotations
+
+import json
+import random
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-import json
 from pathlib import Path
-import random
 from typing import TYPE_CHECKING, Any, Literal, overload
-from value_index import VALUE_INDEX
-from flags import FLAG
 
 from effects import (
     Ambush,
@@ -28,9 +27,11 @@ from effects import (
     ToxicPoison,
     Weaken,
 )
+from flags import FLAG
+from value_index import VALUE_INDEX
 
 if TYPE_CHECKING:
-    from battle import Ally, Battlefield, Enemy, View
+    from battle import Ally, Enemy, View
 
 
 @dataclass
@@ -68,10 +69,10 @@ data_dir = (Path(__file__).parent / "data").resolve()
 AD: dict = json.load(data_dir.joinpath("AD.json").open("r"))
 HP: dict = json.load(data_dir.joinpath("HP.json").open("r"))
 
-if any(val == 0 for val in HP.items() if not isinstance(val, (dict, tuple, list))):
+if any(val == 0 for val in HP.items() if not isinstance(val, dict | tuple | list)):
     HP = HP["BASE"]
 
-if any(val == 0 for val in AD.items() if not isinstance(val, (dict, tuple, list))):
+if any(val == 0 for val in AD.items() if not isinstance(val, dict | tuple | list)):
     AD = AD["BASE"]
 
 AD_DICT = {name: PercDmgObject(val) for name, val in AD.items()}
@@ -223,7 +224,7 @@ class BirdCollection:
         return cls
 
 
-""" 
+"""
 the following function names violate the convention
 as their __name__ is used by `Attack`
 if a name collides with another, use as many prefixed underscores as you need
@@ -397,7 +398,6 @@ def Energy_Drain(atk: Attack, self: Ally, target: Enemy):
     chance = atk.dispell_chance
 
     for enemy in self.battle.enemy_units.values():
-
         if get_chance(chance):
             enemy.dispell()
 
@@ -481,7 +481,6 @@ def Chain_Lightning(atk: Attack, self: Ally, target: Enemy):
     elif target_index == max(indexed_dict):
         try:
             for i in range(target_index, target_index - 4, -1):
-
                 damage = locals()[f"damage{i}"]
 
                 indexed_dict[i].deal_damage(damage, self, direct=True)
@@ -508,9 +507,7 @@ def Chain_Lightning(atk: Attack, self: Ally, target: Enemy):
         raise SystemError(
             "In Chuck Wizard Chain_Lightning: based on if checks,"
             " expected at least 3 enemies on the battlefield"
-            "actual amount of enemies={enemies}".format(
-                enemies=len(self.battle.enemy_units)
-            )
+            f"actual amount of enemies={len(self.battle.enemy_units)}"
         ) from None
 
     # dirty little boilerplate checking
@@ -639,26 +636,33 @@ def Royal_Aid(sprt: Support, self: Ally, target: Ally):
     target.cleanse()
     target.heal(heal)
 
+
 def Angelic_Touch(atk: Attack, self: Ally, target: Enemy):
     damage = matilda % atk.damage
     slice = atk.slice
     heal = atk.heal
 
-    drain = lambda ally, enemy, damage: int((ally.TOTAL_HP / 100) * heal)
+    def drain(ally, enemy, damage):
+        return int((ally.TOTAL_HP / 100) * heal)
 
     for _ in range(slice):
-        target.deal_damage(damage, self, effects=(atk.sbm(LifeDrain, turns=3, drain=drain),))
+        target.deal_damage(
+            damage, self, effects=(atk.sbm(LifeDrain, turns=3, drain=drain),)
+        )
+
 
 def Spirit_Link(sprt: Support, self: Ally, target: Ally):
     effect = sprt.sbm(LinkedHeal, turns=3)
 
     if self.is_same(target):
-        return # pro self use fr
+        return  # pro self use fr
 
     self.add_pos_effects(effect)
     target.add_pos_effects(effect)
 
+
 # quick bomb
+
 
 def Enrage(atk: Attack, self: Ally, target: Enemy):
     damage = bomb % atk.damage
@@ -695,7 +699,6 @@ def Volley(atk: Attack, self: Ally, target: Enemy):
 
 
 def _Ambush(sprt: Support, self: Ally, target: Ally):
-    # XXX the damage parameter will become forced in the future, and it did
     target.add_pos_effects(
         sprt.sbm(Ambush, ambusher=self, turns=2, damage=lambda damage: int(damage / 2))
     )

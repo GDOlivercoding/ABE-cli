@@ -52,7 +52,6 @@ class Battlefield:
 
     def start_battle(self):
         while self.allied_units and self.enemy_units:
-
             print("### Allies turn ###")
             for allied_unit in self.allied_units:
                 allied_unit.attack(self.enemy_units)

@@ -37,7 +37,11 @@ target-version = "py312"
 select = [
   "E", "F", "W", "I", "UP",
 ]
-ignore = []
+
+# UP037: remove quotes from type annotation
+# reason: i use forward references in my code
+
+ignore = ["UP037"]
 
 fixable = ["ALL"]
 unfixable = []

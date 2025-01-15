@@ -1,11 +1,12 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
+
 import random
-from typing import Literal, TYPE_CHECKING
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from battle import View, Battlefield, Ally, Enemy, ConvertibleToInt
+    from battle import Ally, ConvertibleToInt, View
 
 __all__ = [
     "Shield",
@@ -131,7 +132,7 @@ class Effect[V: View, A: View]:
         `target` is the unit with the effect, `heal` is the amount to heal
         """
         return heal
-    
+
     def after_heal(self, target: View, heal: int) -> None:
         """Triggered after the heal count get finalized, cannot return to change healing"""
 
@@ -176,11 +177,12 @@ def get_chance(chance: int) -> bool:
             f"Invalid chance parameter: {chance},"
             " excepted and integer in range (inclusive) 0-100 (inclusive)"
         )
-    
+
     return random.choices([True, False], weights=[chance, 100 - chance])[0]
 
 
 # subclassing
+
 
 class PosEffect(Effect):
     is_pos = True
@@ -473,7 +475,6 @@ class Ambush(PosEffect):
 
     # i know that the return type just means "-> View", b-but its more weadable !!
     def get_target[T: View](self, target: T, attacker: View) -> View | T:
-
         if target.is_same(self.ambusher):
             return self.wearer
 
@@ -483,7 +484,6 @@ class Ambush(PosEffect):
         self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
     ) -> None:
         if victim.is_same(self.wearer):
-
             # temporary fix, XXX maybe not temporary anymore?
             atk = self.ambusher._attack.get()
 
@@ -577,6 +577,7 @@ class ThunderStorm(NegEffect):
 
                     ally.deal_damage(shared_damage, self.wearer, direct=True)
 
+
 @dataclass
 class LifeDrain(NegEffect):
     """
@@ -590,19 +591,22 @@ class LifeDrain(NegEffect):
     and return the amount to heal (of type ConvertibleToInt)
     can be int, DamageObject or another custom object
     """
+
     drain: Callable[[View, View, int], ConvertibleToInt]
 
-    def after_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]) -> None:
+    def after_hit(
+        self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
+    ) -> None:
         if not victim.is_same(self.wearer):
             return
-        
+
         heal = self.drain(victim, attacker, damage)
 
         attacker.heal(heal)
 
+
 @dataclass
 class LinkedHeal(PosEffect):
-
     def __post_init__(self):
         self.lock = False
 
@@ -610,7 +614,7 @@ class LinkedHeal(PosEffect):
         if self.lock:
             self.lock = False
             return
-        
+
         if target.is_ally:
             for ally in target.battle.allied_units.values():
                 self.lock = True

@@ -1,10 +1,13 @@
 from __future__ import annotations
+
+import json
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-import json
-from battle import battle_interface, result as res
-from controls import controls_interface
 from pathlib import Path
+
+from battle import battle_interface
+from battle import result as res
+from controls import controls_interface
 
 highlighters: dict[str, Callable[[str], str]] = {
     "bold": lambda t: f"[b]{t}[/b]",
@@ -12,6 +15,7 @@ highlighters: dict[str, Callable[[str], str]] = {
     "strikethrough": lambda t: f"[strike]{t}[/strike]",
     "underline": lambda t: f"[underline]{t}[/underline]",
 }
+
 
 class JSON(Path):
     def __init__(self, *args) -> None:
@@ -25,6 +29,7 @@ class JSON(Path):
         else:
             self.write_text(json.dumps(data, indent=4))
 
+
 @dataclass
 class Highlighter:
     current: dict[str, Callable[[str], str]] = field(default_factory=dict)
@@ -32,6 +37,7 @@ class Highlighter:
 
     def __post_init__(self):
         self.highlighters = highlighters
+
 
 class MainObj:
     def __init__(self) -> None:
@@ -44,17 +50,22 @@ class MainObj:
 
         self.fp = Path(__file__)
 
+        general = self.jsons["general"].content
+
+        self.level = general["level"]
+        self.xp = general["xp"]
+        self.MAX_ALLIES = general["max_allies"]
+
         self.highlighter = Highlighter(
-            current={name: highlighters[name] 
-                     for name in 
-                     self.jsons["general"].content["highlighter"]["types"]},
-            switch=self.jsons["general"].content["highlighter"]["switch"]
+            current={
+                name: highlighters[name]
+                for name in self.jsons["general"].content["highlighter"]["types"]
+            },
+            switch=self.jsons["general"].content["highlighter"]["switch"],
         )
 
     def control(self, name: str) -> Iterable[str]:
         return self.jsons["controls"].content.get(name, [name])
-
-    MAX_ALLIES = float("inf")
 
 
 mainobj = MainObj()

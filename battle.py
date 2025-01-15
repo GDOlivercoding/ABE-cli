@@ -1,14 +1,18 @@
 from __future__ import annotations
-from abc import ABC, abstractmethod
-from collections.abc import Generator, Iterable
-from enum import Enum, auto
+
 import random
-from typing import Final, Protocol, Self, Sequence, TYPE_CHECKING, runtime_checkable
+from abc import ABC, abstractmethod
+from collections.abc import Generator, Iterable, Sequence
+from enum import Enum, auto
+from typing import TYPE_CHECKING, Final, Protocol, Self, runtime_checkable
+
 from rich import print
 from rich.table import Table as RichTable
-from value_index import BIRDS_TABLE
+
 from help import help
 from new_classes import CLASSES_DICT
+from value_index import BIRDS_TABLE
+
 
 class Table(RichTable):
     def __enter__(self):
@@ -17,15 +21,19 @@ class Table(RichTable):
     def __exit__(self, *args):
         print(self)
 
+
 if TYPE_CHECKING:
     from battle import View
     from effects import Effect
     from main import MainObj
 
+
 class ConvertibleToInt(Protocol):
     def __int__(self) -> int: ...
 
+
 # classes
+
 
 class View(ABC):
     @abstractmethod
@@ -75,9 +83,7 @@ class View(ABC):
             effect.on_dispell()
             del self.pos_effects[effect.name]
 
-    def deal_damage[
-        T: View
-    ](
+    def deal_damage[T: View](
         self,
         damage: ConvertibleToInt,
         source: T,
@@ -115,7 +121,7 @@ class View(ABC):
         damage = int(damage)
         print(
             f"{source.name} tries to attack {self.name}!"
-            f"\ndamage={damage}, effects={", ".join(effect.name for effect in effects)}"
+            f"\ndamage={damage}, effects={', '.join(effect.name for effect in effects)}"
         )
 
         target = self if direct else self.get_target(source)
@@ -127,7 +133,7 @@ class View(ABC):
                 )
 
         print(
-            f"new: damage={damage}, effects={", ".join(effect.name for effect in effects)}"
+            f"new: damage={damage}, effects={', '.join(effect.name for effect in effects)}"
         )
 
         print(f"old: {self.battle.chili=}, {target.hp=}")
@@ -136,7 +142,7 @@ class View(ABC):
         print(f"new: {self.battle.chili=}, {target.hp=}")
 
         effects = list(target.add_neg_effects(*effects))
-        print(f"actual effects: {", ".join(effect.name for effect in effects)}\n")
+        print(f"actual effects: {', '.join(effect.name for effect in effects)}\n")
 
         for effect_vals in [eff.effects.values() for eff in self.battle.units.values()]:
             for effect in effect_vals:
@@ -189,7 +195,6 @@ class View(ABC):
             return  # cannot add neg effects to immune target
 
         for effect in effects:
-
             if effect.is_pos:
                 raise ValueError(
                     f"Cannot add positive effect '{effect.__class__.__name__}'"
@@ -213,7 +218,6 @@ class View(ABC):
 
     def add_pos_effects(self, *effects: Effect):
         for effect in effects:
-
             if not effect.is_pos:
                 raise ValueError(
                     f"Cannot add negative effect '{effect.__class__.__name__}'"
@@ -348,7 +352,7 @@ class Battlefield:
         allies: Sequence[Ally],
         chili=0,
         control_set: SupportsControl = dummy_control,
-        highlighter
+        highlighter,
     ):
         """
         A battlefield representing an angry birds epic battle
@@ -418,7 +422,7 @@ class Battlefield:
         self.wave_int = 1
 
         self.exhaust_waves = list(waves)
-        del self.exhaust_waves[0] 
+        del self.exhaust_waves[0]
 
         self._id = -1
 
@@ -574,7 +578,6 @@ class Battlefield:
                     continue
 
                 elif command in control("attack"):
-
                     try:
                         attack, ally, target, *args = cmd
                     except ValueError:
@@ -737,7 +740,6 @@ class Battlefield:
                         target = self.units[target]
 
                         with Table(title=f"Viewing stats of {target.name}") as table:
-
                             table.add_column("Name")
                             table.add_column("Current Health/Total Health")
                             table.add_column("Effects")
@@ -860,7 +862,9 @@ class Battlefield:
             allies.add_column("Effects")
 
             for ally in self.allied_units.values():
-                should_we_do_it = self.highlighter.switch == ally.clsname not in self.played
+                should_we_do_it = (
+                    self.highlighter.switch == ally.clsname not in self.played
+                )
 
                 if should_we_do_it:
                     string = ally.clsname
@@ -876,7 +880,6 @@ class Battlefield:
                 )
 
         with Table(title="Enemies") as enemies:
-
             enemies.add_column("Name")
             enemies.add_column("Current Health/Total Health")
             enemies.add_column("Effects")
@@ -902,7 +905,6 @@ class Battlefield:
 
 
 def battle_interface(mainobj: "MainObj") -> result:
-
     fp = mainobj.jsons["picked"]
 
     control = mainobj.control
@@ -954,7 +956,6 @@ def battle_interface(mainobj: "MainObj") -> result:
 
         elif INPUT == "choices":
             with Table(title="All allies and class choices") as table:
-
                 table.add_column("Name")
                 table.add_column("Classes")
 
@@ -962,7 +963,6 @@ def battle_interface(mainobj: "MainObj") -> result:
                     table.add_row(name, ", ".join(iter))
 
         elif INPUT in control("pick"):
-
             pick, *args = _INPUT.split(" ")
 
             if not args:
@@ -1041,16 +1041,16 @@ def battle_interface(mainobj: "MainObj") -> result:
                     [Enemy(name=f"dummy{i}", hp=10, damage=10) for i in range(7)],
                     allies=[Ally(name, cls) for name, cls in PICKED.items()],
                     control_set=mainobj,
-                    highlighter=mainobj.highlighter
+                    highlighter=mainobj.highlighter,
                 )
 
                 _range = 20
 
                 for i in range(5, 101):
                     mul = i * 10
-                    l = []
+                    wave = []
                     for _ in range(7):
-                        l.append(
+                        wave.append(
                             Enemy(
                                 f"dummy{_}{i}",
                                 hp=random.choice(
@@ -1061,7 +1061,7 @@ def battle_interface(mainobj: "MainObj") -> result:
                                 ),
                             )
                         )
-                    battle.exhaust_waves.append(l)
+                    battle.exhaust_waves.append(wave)
 
                 return battle.start_battle()
 

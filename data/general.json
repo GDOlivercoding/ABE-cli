@@ -1,4 +1,7 @@
 {
     "is_first_visit": false,
-    "highlighter": {"switch": false, "types": ["strikethrough"]}
+    "highlighter": {"switch": false, "types": ["strikethrough"]},
+    "level": 0,
+    "xp": 0,
+    "max_allies": 3
 }

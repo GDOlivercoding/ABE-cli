@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from enum import Enum, auto
 
 # fmt: off
@@ -37,7 +38,7 @@ BIRDS_TABLE: dict[str, list[str]] = {
     "blues": ["trickers", "rogues", "marksmen", "skulkers", "treasure-hunters"],
 }
 
-VALUE_INDEX = { 
+VALUE_INDEX = {
     "red": {
         "knight": {
             "attack": {
@@ -197,4 +198,4 @@ VALUE_INDEX = {
             "support": {}
         }
     }
-} 
+}

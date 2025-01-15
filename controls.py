@@ -1,6 +1,8 @@
-from help import help
-from rich import print
 from typing import TYPE_CHECKING
+
+from rich import print
+
+from help import help
 
 # module to change names for actions
 # can be found in .\data\controls.jsons
@@ -8,6 +10,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from main import MainObj
+
 
 def controls_interface(mainobj: "MainObj"):
     controls_file = mainobj.jsons["controls"]
@@ -94,7 +97,7 @@ def controls_interface(mainobj: "MainObj"):
             if not args:
                 print("Current controls:\n")
                 for action, aliases in CONTROLS.items():
-                    print(f"\n    {action}: {", ".join(aliases)}")
+                    print(f"\n    {action}: {', '.join(aliases)}")
                 continue
 
             action = " ".join(args)
@@ -175,12 +178,11 @@ def controls_interface(mainobj: "MainObj"):
 
         elif command == "presets":
             if len(parts) == 1:  # were dealing with bare presets
-
                 for presetname, iter in PRESETS.items():
                     print(f"\n{presetname}:")
 
                     for action, aliases in iter.items():
-                        print(f"\n    {action}: {", ".join(aliases)}")
+                        print(f"\n    {action}: {', '.join(aliases)}")
 
                 continue
 
@@ -267,7 +269,9 @@ def controls_interface(mainobj: "MainObj"):
                 item, value = args
 
                 if item == "switch":
-                    highlighter.switch = True if args[0].capitalize() == "True" else False
+                    highlighter.switch = (
+                        True if args[0].capitalize() == "True" else False
+                    )
 
                 else:
                     if value in highlighters:
