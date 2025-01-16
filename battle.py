@@ -10,7 +10,7 @@ from rich import print
 from rich.table import Table as RichTable
 
 from help import help
-from new_classes import CLASSES_DICT
+from classes import CLASSES_DICT
 from value_index import BIRDS_TABLE
 
 
