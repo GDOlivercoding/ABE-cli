@@ -5,6 +5,8 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
+# import type: output only
+
 if TYPE_CHECKING:
     from battle import Ally, ConvertibleToInt, View
 
@@ -175,7 +177,7 @@ def get_chance(chance: int) -> bool:
     if chance > 100 or chance < 0:
         raise ValueError(
             f"Invalid chance parameter: {chance},"
-            " excepted and integer in range (inclusive) 0-100 (inclusive)"
+            " expected an integer in range 0-100 (inclusive)"
         )
 
     return random.choices([True, False], weights=[chance, 100 - chance])[0]

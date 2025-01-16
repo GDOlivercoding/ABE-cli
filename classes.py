@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, overload
 
+# import type: output only ->
 from effects import (
     Ambush,
     AncestralProtection,
@@ -69,10 +70,10 @@ data_dir = (Path(__file__).parent / "data").resolve()
 AD: dict = json.load(data_dir.joinpath("AD.json").open("r"))
 HP: dict = json.load(data_dir.joinpath("HP.json").open("r"))
 
-if any(val == 0 for val in HP.items() if not isinstance(val, dict | tuple | list)):
+if any(val == 0 for val in HP.values() if not isinstance(val, dict | tuple | list)):
     HP = HP["BASE"]
 
-if any(val == 0 for val in AD.items() if not isinstance(val, dict | tuple | list)):
+if any(val == 0 for val in AD.values() if not isinstance(val, dict | tuple | list)):
     AD = AD["BASE"]
 
 AD_DICT = {name: PercDmgObject(val) for name, val in AD.items()}
@@ -163,6 +164,10 @@ class Ability:
 
 class Attack(Ability):
     typ = "attack"
+    # if this attack is an "all" attack
+    # an attack, which makes all enemies suffer equally
+    # usually an attack, which doesn't use its target argument
+    supports_ambiguos_use: bool = False
 
     def __call__(
         self, birdself: Ally, target: Enemy, flags: Sequence[FLAG] = ()
@@ -379,6 +384,7 @@ def Ancestral_Protection(sprt: Support, self: Ally, target: Enemy):
 
 
 def Storm(atk: Attack, self: Ally, target: Enemy):
+    atk.supports_ambiguos_use = True
     damage = chuck % atk.damage
 
     for enemy in self.battle.enemy_units.values():
@@ -394,6 +400,7 @@ def Shock_Shield(sprt: Support, self: Ally, target: Ally):
 
 
 def Energy_Drain(atk: Attack, self: Ally, target: Enemy):
+    atk.supports_ambiguos_use = True
     damage = chuck % atk.damage
     chance = atk.dispell_chance
 
@@ -413,6 +420,7 @@ def Lightning_Fast(sprt: Support, self: Ally, target: Ally):
 
 
 def Acid_Rain(atk: Attack, self: Ally, target: Enemy):
+    atk.supports_ambiguos_use = True
     damage = chuck % atk.damage
     poison = chuck % atk.poison
 

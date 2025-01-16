@@ -3,6 +3,7 @@ from collections.abc import Sequence
 from rich.markup import escape
 from rich.table import Table
 
+# import type: output only
 
 class TableMaker:
     def __init__(self, *columns: str, title: str | None = None) -> None:

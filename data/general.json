@@ -3,5 +3,5 @@
     "highlighter": {"switch": false, "types": ["strikethrough"]},
     "level": 0,
     "xp": 0,
-    "max_allies": 3
+    "max_allies": 99
 }

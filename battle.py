@@ -7,14 +7,15 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Final, Protocol, Self, runtime_checkable
 
 from rich import print
-from rich.table import Table as RichTable
+import rich.table
 
+# import type: switch
 from help import help
 from classes import CLASSES_DICT
 from value_index import BIRDS_TABLE
 
 
-class Table(RichTable):
+class Table(rich.table.Table):
     def __enter__(self):
         return self
 
@@ -336,10 +337,6 @@ class DummyControlSet:
     def control(self, name: str) -> Iterable[str]:
         return (name,)
 
-
-dummy_control = DummyControlSet()
-
-
 @runtime_checkable
 class SupportsControl(Protocol):
     def control(self, name: str) -> Iterable[str]: ...
@@ -351,7 +348,7 @@ class Battlefield:
         *waves: list[Enemy],
         allies: Sequence[Ally],
         chili=0,
-        control_set: SupportsControl = dummy_control,
+        control_set: SupportsControl = DummyControlSet(),
         highlighter,
     ):
         """
@@ -579,18 +576,18 @@ class Battlefield:
 
                 elif command in control("attack"):
                     try:
-                        attack, ally, target, *args = cmd
+                        attack, ally, *args = cmd
                     except ValueError:
                         print("Not enough arguments")
                         continue
 
-                    if "-help" in args or "-h" in args:
-                        print(help["attack"])
-                        continue
+                    target = args[0] if len(args) else None
 
+                    temp = ally
                     ally = self.startswith_ally(ally)
 
                     if ally is None:
+                        print(f"No ally found with name '{temp}'")
                         continue
 
                     _marker = False
@@ -616,10 +613,21 @@ class Battlefield:
 
                         continue
 
-                    enemy = self.startswith_enemy(target)
-
-                    if enemy is None:
+                    if target is None and not ally._attack.supports_ambiguos_use:
+                        print("Missing target argument.")
                         continue
+
+                    elif target is None:
+                        # grab the first enemy, it literally doesnt care
+                        enemy = list(self.enemy_units.values())[0]
+
+                    else:
+                        temp = enemy
+                        enemy = self.startswith_enemy(target)
+
+                        if enemy is None:
+                            print(f"Did not find an enemy with name '{temp}'.")
+                            continue
 
                     self.played.append(ally.clsname)
                     ally.attack(self.enemy_units[enemy.name])
@@ -739,7 +747,9 @@ class Battlefield:
                     if target in self.units:
                         target = self.units[target]
 
-                        with Table(title=f"Viewing stats of {target.name}") as table:
+                        name = target.clsname if isinstance(target, Ally) else target.name
+
+                        with Table(title=f"Viewing stats of {name}") as table:
                             table.add_column("Name")
                             table.add_column("Current Health/Total Health")
                             table.add_column("Effects")

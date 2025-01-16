@@ -4,12 +4,11 @@ import json
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-import readline
 
 import typer
 
-from battle import battle_interface
-from battle import result as res
+# import type: input only
+from battle import battle_interface, result as res
 from controls import controls_interface
 
 highlighters: dict[str, Callable[[str], str]] = {
