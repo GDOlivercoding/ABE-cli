@@ -4,6 +4,9 @@ import json
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
+import readline
+
+import typer
 
 from battle import battle_interface
 from battle import result as res
