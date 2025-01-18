@@ -54,9 +54,11 @@ class MainObj:
 
         general = self.jsons["general"].content
 
-        self.level = general["level"]
-        self.xp = general["xp"]
+        self.xp: int = general["xp"]
+        self.lvl_scale: int = general["level_scale"]
         self.MAX_ALLIES = general["max_allies"]
+
+        self.tabulate_xp()
 
         self.highlighter = Highlighter(
             current={
@@ -68,6 +70,27 @@ class MainObj:
 
     def control(self, name: str) -> Iterable[str]:
         return self.jsons["controls"].content.get(name, [name])
+    
+    def tabulate_xp(self, xp: int | None = None, scale: int | None = None):
+        if xp is None:
+            xp = self.xp
+
+        if scale is None:
+            scale = self.lvl_scale
+
+        self.level = 0
+
+        while True:
+            if xp > scale:
+                self.level += 1
+                xp -= scale
+                scale += int(scale / 2)
+                continue
+            break
+
+        self.xp = xp
+
+
 
 
 mainobj = MainObj()

@@ -69,14 +69,34 @@ data_dir = (Path(__file__).parent / "data").resolve()
 
 AD: dict = json.load(data_dir.joinpath("AD.json").open("r"))
 HP: dict = json.load(data_dir.joinpath("HP.json").open("r"))
+general: dict = json.load(data_dir.joinpath("general.json").open("r"))
 
-if any(val == 0 for val in HP.values() if not isinstance(val, dict | tuple | list)):
-    HP = HP["BASE"]
+xp = general.get("xp", 0)
+scale = general.get("scale", 50)
 
-if any(val == 0 for val in AD.values() if not isinstance(val, dict | tuple | list)):
-    AD = AD["BASE"]
+level = 0
+
+while True:
+    if xp > scale:
+        level += 1
+        xp -= scale
+        scale += int(scale / 2)
+        continue
+    break
+
+for name, val in HP.items():
+    perc = val / 100 * 2
+    val += perc * level
+    HP[name] = val
+
+for name, val in AD.items():
+    perc = val / 100 * 2
+    val += perc * level
+    AD[name] = val
 
 AD_DICT = {name: PercDmgObject(val) for name, val in AD.items()}
+
+# there should be a better way to do this
 red = AD_DICT["red"]
 chuck = AD_DICT["chuck"]
 matilda = AD_DICT["matilda"]
@@ -102,7 +122,7 @@ class Ability:
 
         # container is received upon BirdCollection initiation so be careful!
         self.container: BirdCollection
-        # typ is defined by subclasss
+        # typ is defined by subclasses
         self.typ: str
 
     # this function is shared by ALL subclasses
@@ -157,7 +177,7 @@ class Ability:
         classname = self.container.current_class
 
         if self.typ == "chili":
-            VALUE_INDEX[birdname][self.typ][name]
+            return VALUE_INDEX[birdname][self.typ][name]
 
         return VALUE_INDEX[birdname][classname][self.typ][name]
 
@@ -205,13 +225,13 @@ class BirdClass:
 
 class BirdCollection:
     def __init__(self, *classes: BirdClass, chili: Callable, birdname: str) -> None:
-        if not len(classes):
+        if not classes:
             raise ValueError("Expected at least one BirdClass object")
 
         for cls in classes:
             cls.attack.container = cls.support.container = self
 
-        self.TOTAL_HP = self.hp = HP[birdname]
+        self.TOTAL_HP = self.hp = int(HP[birdname])
 
         self.classes = {cls.classname: cls for cls in classes}
         self.chili = Chili(chili)
@@ -330,9 +350,9 @@ def avenger_support(sprt: Support, self: Ally, target: Enemy):
         enemy.add_neg_effects(sprt.sbm(ForceTarget, turns=2, target=target))
 
 
-def Holy_Strike(sbm: Callable, self: Ally, target: Enemy):
-    damage = red % VALUE_INDEX["red"]["paladin"]["attack"]["damage"]
-    heal = VALUE_INDEX["red"]["paladin"]["attack"]["heal"]
+def Holy_Strike(atk: Attack, self: Ally, target: Enemy):
+    damage = red % atk.damage
+    heal = atk.heal
 
     _, _, damage, *_ = target.deal_damage(damage, self)
 
@@ -341,12 +361,13 @@ def Holy_Strike(sbm: Callable, self: Ally, target: Enemy):
     if all(unit.hp == unit.TOTAL_HP for unit in self.battle.allied_units.values()):
         self.heal(actual_heal)
     else:
-        heal_target = min(self.battle.allied_units.values(), key=lambda unit: unit.hp)
+        # fixed: the heal should be based percentage wise
+        heal_target = min(self.battle.allied_units.values(), key=lambda unit: unit.hp / (unit.TOTAL_HP / 100))
         heal_target.heal(actual_heal)
 
 
 def _Devotion(sprt: Support, self: Ally, target: Ally):
-    target.add_pos_effects(sprt.sbm(Devotion, turns=3, protector=self, shield=40))
+    target.add_pos_effects(sprt.sbm(Devotion, turns=3, protector=self, effectiveness=40))
 
 
 def Feral_Assault(atk: Attack, self: Ally, target: Enemy):
@@ -384,7 +405,7 @@ def Ancestral_Protection(sprt: Support, self: Ally, target: Enemy):
 
 
 def Storm(atk: Attack, self: Ally, target: Enemy):
-    atk.supports_ambiguos_use = True
+    
     damage = chuck % atk.damage
 
     for enemy in self.battle.enemy_units.values():
@@ -400,7 +421,7 @@ def Shock_Shield(sprt: Support, self: Ally, target: Ally):
 
 
 def Energy_Drain(atk: Attack, self: Ally, target: Enemy):
-    atk.supports_ambiguos_use = True
+    
     damage = chuck % atk.damage
     chance = atk.dispell_chance
 
@@ -420,7 +441,7 @@ def Lightning_Fast(sprt: Support, self: Ally, target: Ally):
 
 
 def Acid_Rain(atk: Attack, self: Ally, target: Enemy):
-    atk.supports_ambiguos_use = True
+    
     damage = chuck % atk.damage
     poison = chuck % atk.poison
 
@@ -732,21 +753,28 @@ def Heroic_Strike(chili: Chili, self: Ally):
 def Speed_Of_Light(chili: Chili, self: Ally):
     battle = self.battle
 
+    ally_dict = {ally.id: ally for ally in battle.allied_units.values()}
+    id_list = [*ally_dict]
+
     c = 0
     for i in range(chili.supers):
-        units = [*battle.allied_units.values()]
+        try:
+            get = id_list[c]
+        except IndexError:
+            c = 0
+            get = id_list[c]
+        
+        unit = ally_dict[get]
 
         try:
-            unit = units[c]
-        except ValueError:
-            c = 0
-            unit = units[c]
-        else:
-            c += 1
+            battle.allied_units[unit.clsname]
+        except KeyError:
+            return # once an ally dies, the chili gets cancelled
 
-        unit._class.attack(
+        unit._attack(
             unit, random.choice([*battle.enemy_units.values()]), flags=(FLAG.super_atk,)
         )
+        c += 1
 
 
 def matilda_chili(chili: Chili, self: Ally):
@@ -821,6 +849,10 @@ Chuck = BirdCollection(
     chili=Speed_Of_Light,
     birdname="chuck",
 )
+
+Chuck.classes["mage"].attack.supports_ambiguos_use = True
+Chuck.classes["lightning-bird"].attack.supports_ambiguos_use = True
+Chuck.classes["rainbird"].attack.supports_ambiguos_use = True
 
 Matilda = BirdCollection(
     BirdClass(attack=Healing_Strike, support=Healing_Shield, classname="cleric"),

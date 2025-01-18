@@ -389,10 +389,6 @@ class Devotion[T: View, P: View](Shield):
     """
 
     protector: P
-    shield: int = 0
-
-    def on_enter(self):
-        self.effectiveness = self.shield
 
     def get_target(self, target: T, attacker: View) -> P | T:
         if target.is_same(self.wearer):

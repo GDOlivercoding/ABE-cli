@@ -11,9 +11,10 @@ import rich.table
 
 # import type: switch
 from help import help
-from classes import CLASSES_DICT
+from allies import CLASSES_DICT
 from value_index import BIRDS_TABLE
-
+from view import View
+from enemies import Enemy
 
 class Table(rich.table.Table):
     def __enter__(self):
@@ -34,214 +35,6 @@ class ConvertibleToInt(Protocol):
 
 
 # classes
-
-
-class View(ABC):
-    @abstractmethod
-    def __init__(self) -> None:
-        self.name: str  # assigned during init
-        self.battle: Battlefield  # assigned once added to the Battlefield object
-        self.is_ally: bool  # assigned with subclass
-        self.neg_effects: dict[str, Effect]  # assigned during init
-        self.pos_effects: dict[str, Effect]  # assigned during init
-        self.id: int  # assigned once added to the Battlefield object
-        self._hp: int
-        self.TOTAL_HP: int
-        ...
-
-    @property
-    def hp(self):
-        return self._hp
-
-    @hp.setter
-    def hp(self, setter: ConvertibleToInt):
-        self._hp = int(setter)
-        if self._hp > self.TOTAL_HP:
-            self._hp = self.TOTAL_HP
-
-    def view(self) -> str:  # probably deprecated
-        """Obsolete method, formatting is gonna made a different way a i think"""
-        return f"{self.name} - {self.hp}/{self.TOTAL_HP}"  # type: ignore
-
-    def is_same(self, target: View) -> bool:
-        return self.id == target.id
-
-    @property
-    def effects(self):
-        return self.pos_effects | self.neg_effects
-
-    def cleanse(self):
-        for effect in list(self.neg_effects.values()):
-            if not effect.can_cleanse:
-                continue
-            effect.on_cleanse()
-            del self.neg_effects[effect.name]
-
-    def dispell(self):
-        for effect in list(self.pos_effects.values()):
-            if not effect.can_dispell:
-                continue
-            effect.on_dispell()
-            del self.pos_effects[effect.name]
-
-    def deal_damage[T: View](
-        self,
-        damage: ConvertibleToInt,
-        source: T,
-        effects: Sequence[Effect] = (),
-        direct: bool = False,
-    ) -> tuple[View | Self, T, int, Sequence[Effect]]:
-        """
-        method to attack a unit,
-        this should only be called within bird class attacks, passives and chilies)
-
-        args:
-            damage: the amount of damage to deal to self
-            source: the attacker which caused this attack
-            effects: effects to be applied to self
-            direct: if True, dont apply redirecting effects, only use when you used self.get_target() yourself
-            or when this attack is not dodgable, like for example, all targeted attacks (chucks attacks)
-
-        NOTE:
-            poison damage will be blockable
-            gotta work on that
-            poison will probably reduce the .hp
-            attribute without any events
-
-        returns tuple[
-            Self or View if target gets changed
-
-            T[View] the source of the damage, usually the unit attacking (attacker)
-
-            int the totalized finalized damage that the unit took
-
-            Seq[Effect] a list of effects applied to the unit
-        ]
-        """
-
-        damage = int(damage)
-        print(
-            f"{source.name} tries to attack {self.name}!"
-            f"\ndamage={damage}, effects={', '.join(effect.name for effect in effects)}"
-        )
-
-        target = self if direct else self.get_target(source)
-
-        for effect_vals in [eff.effects.values() for eff in self.battle.units.values()]:
-            for effect in effect_vals:
-                target, source, damage, effects = effect.on_hit(
-                    target, source, damage, effects
-                )
-
-        print(
-            f"new: damage={damage}, effects={', '.join(effect.name for effect in effects)}"
-        )
-
-        print(f"old: {self.battle.chili=}, {target.hp=}")
-        self.battle.chili += 5
-        target.hp -= damage
-        print(f"new: {self.battle.chili=}, {target.hp=}")
-
-        effects = list(target.add_neg_effects(*effects))
-        print(f"actual effects: {', '.join(effect.name for effect in effects)}\n")
-
-        for effect_vals in [eff.effects.values() for eff in self.battle.units.values()]:
-            for effect in effect_vals:
-                effect.after_hit(target, source, damage, effects)
-
-        return target, source, damage, effects
-
-    def heal(self, heal: ConvertibleToInt):
-        heal = int(heal)
-        print(f"An unknown source tries to heal {self.name}, heal={heal}")
-        target = self
-
-        for effect_vals in [eff.effects.values() for eff in self.battle.units.values()]:
-            for effect in effect_vals:
-                heal = effect.on_heal(target=target, heal=heal)
-
-        print(f"Actual heal: {heal}")
-
-        print(f"old: {target.hp=}")
-        target.hp += heal
-        print(f"new: {target.hp=}")
-
-        for effect_vals in [eff.effects.values() for eff in self.battle.units.values()]:
-            for effect in effect_vals:
-                effect.after_heal(target=target, heal=heal)
-
-    def get_target(self, attacker: View) -> Self | View:
-        """
-        Obtain the target, this method by itself does not cause any damage
-        either return the object whose method is called
-        or an effect which changed the target
-        """
-        target = self
-
-        for effect in attacker.effects.values():
-            target = effect.get_target(target, attacker)
-
-        # XXX EFFECTS CAN HAVE SAME NAME
-        for effect in target.effects.values():
-            target = effect.get_target(target, attacker)
-
-        return target
-
-    def add_neg_effects(self, *effects: Effect) -> Generator[Effect, None, None]:
-        """
-        Add negative effects `effects`
-        -> Generator[effects successfully applied, None, None]
-        """
-        if any(effect.immune for effect in self.effects.values()):
-            return  # cannot add neg effects to immune target
-
-        for effect in effects:
-            if effect.is_pos:
-                raise ValueError(
-                    f"Cannot add positive effect '{effect.__class__.__name__}'"
-                )
-
-            to_delete = []
-
-            for _effect in self.neg_effects.values():
-                if type(effect) is type(_effect):
-                    to_delete.append(_effect.name)
-
-            for name in to_delete:
-                del self.neg_effects[name]
-
-            effect.wearer = self
-            effect.is_pos = False  # if its an undefined effect
-
-            yield effect
-            self.neg_effects[effect.name] = effect
-            effect.on_enter()
-
-    def add_pos_effects(self, *effects: Effect):
-        for effect in effects:
-            if not effect.is_pos:
-                raise ValueError(
-                    f"Cannot add negative effect '{effect.__class__.__name__}'"
-                )
-
-            to_delete = []
-
-            for _effect in self.pos_effects.values():
-                if type(effect) is type(_effect):
-                    to_delete.append(_effect.name)
-
-            for name in to_delete:
-                del self.pos_effects[name]
-
-            effect.wearer = self
-            effect.is_pos = True  # if its an undefined effect
-
-            self.pos_effects[effect.name] = effect
-            effect.on_enter()
-
-    def is_dead(self) -> bool:
-        return self.hp <= 0
-
 
 # here Ally is going to be a class for ally allies
 # and its abilities are specified in attrs
@@ -280,50 +73,6 @@ class Ally(View):
 
     def chili(self):
         self.bird.chili(self)
-
-
-class Pig:
-    can_chili = False
-    name = "Pig"
-
-    def __getattr__(self, name: str):
-        pass
-
-
-pig = Pig()
-
-
-class Enemy(View):
-    """
-    A baseclass for enemies, or can be used as a class for simple enemies
-    it is going to be hard to determinate how simple they should be
-
-    for now ill decide for enemies with a singular attack
-    """
-
-    def __init__(self, name: str, hp: int, damage: int, flags={}):
-        self.name = name.lower()
-        self._hp = hp
-        self.TOTAL_HP = hp
-        self.damage = damage
-        self.is_ally: Final = False
-        self.neg_effects: dict[str, Effect] = {}
-        self.pos_effects: dict[str, Effect] = {}
-        self.passives = {pig.name: pig}  # planned for the future
-
-    def attack(self):
-        self.set_target()
-
-        damage = self.damage
-        target = self.current_target
-        target, self, damage, _ = target.deal_damage(damage, self)
-
-        print(f"{self.name} attacks {target.name} for {damage} damage")
-
-    def set_target(self):
-        # always attack the lowest health target
-        self.current_target = min(self.battle.allied_units.values(), key=lambda x: x.hp)
-
 
 class result(Enum):
     lost = auto()
@@ -581,13 +330,11 @@ class Battlefield:
                         print("Not enough arguments")
                         continue
 
-                    target = args[0] if len(args) else None
+                    target = args[0] if args else None
 
-                    temp = ally
                     ally = self.startswith_ally(ally)
 
                     if ally is None:
-                        print(f"No ally found with name '{temp}'")
                         continue
 
                     _marker = False
@@ -601,14 +348,14 @@ class Battlefield:
                     if _marker:
                         if len(effects) == 1:
                             print(
-                                f"'{ally.name}' can't attack because of '{effects[0]}' effect."
+                                f"'{ally.clsname}' can't attack because of '{effects[0]}' effect."
                             )
                         else:
                             string_effects = ", ".join(
                                 f"'{effect}'" for effect in effects
                             )
                             print(
-                                f"'{ally.name}' can't attack because of {string_effects} effects."
+                                f"'{ally.clsname}' can't attack because of {string_effects} effects."
                             )
 
                         continue
@@ -622,11 +369,9 @@ class Battlefield:
                         enemy = list(self.enemy_units.values())[0]
 
                     else:
-                        temp = enemy
                         enemy = self.startswith_enemy(target)
 
                         if enemy is None:
-                            print(f"Did not find an enemy with name '{temp}'.")
                             continue
 
                     self.played.append(ally.clsname)
@@ -662,14 +407,14 @@ class Battlefield:
                     if _marker:
                         if len(effects) == 1:
                             print(
-                                f"'{ally.name}' can't use support because of '{effects[0]}' effect."
+                                f"'{ally.clsname}' can't use support because of '{effects[0]}' effect."
                             )
                         else:
                             string_effects = ", ".join(
                                 f"'{effect}'" for effect in effects
                             )
                             print(
-                                f"'{ally.name}' can't use support because of {string_effects} effects."
+                                f"'{ally.clsname}' can't use support because of {string_effects} effects."
                             )
 
                         continue
@@ -712,14 +457,14 @@ class Battlefield:
                     if _marker:
                         if len(effects) == 1:
                             print(
-                                f"'{ally.name}' can't use chili because of '{effects[0]}' effect."
+                                f"'{ally.clsname}' can't use chili because of '{effects[0]}' effect."
                             )
                         else:
                             string_effects = ", ".join(
                                 f"'{effect}'" for effect in effects
                             )
                             print(
-                                f"'{ally.name}' can't use chili because of {string_effects} effects."
+                                f"'{ally.clsname}' can't use chili because of {string_effects} effects."
                             )
 
                         continue
@@ -755,7 +500,7 @@ class Battlefield:
                             table.add_column("Effects")
 
                             table.add_row(
-                                target.name,
+                                name,
                                 f"{target.hp}/{target.TOTAL_HP}",
                                 (", ".join(target.effects) or "No active effects"),
                             )
@@ -763,9 +508,11 @@ class Battlefield:
                         print(f"No unit found for '{target}'")
 
                 elif command in control("turns"):
-                    for unit in self.allied_units.values():
-                        if unit.clsname not in self.played:
-                            print(unit.view())
+                    with Table() as table:
+                        table.add_column("Unplayed:")
+                        for unit in self.allied_units.values():
+                            if unit.clsname not in self.played:
+                                table.add_row(unit.clsname)
 
                 elif command in control("abort"):
                     while True:
@@ -872,14 +619,10 @@ class Battlefield:
             allies.add_column("Effects")
 
             for ally in self.allied_units.values():
-                should_we_do_it = (
-                    self.highlighter.switch == ally.clsname not in self.played
-                )
+                should_we_do_it = ally.clsname not  in self.played
 
                 if should_we_do_it:
-                    string = ally.clsname
-                    for format in self.highlighter.current.values():
-                        string = format(string)
+                    string = f"[b]{ally.clsname}[/b]"
                 else:
                     string = ally.clsname
 
@@ -900,6 +643,10 @@ class Battlefield:
                     f"{enemy.hp}/{enemy.TOTAL_HP}",
                     ", ".join(enemy.effects),
                 )
+        
+        with Table() as t:
+            t.add_column("chili")
+            t.add_row(f"{self.chili}%")
 
     def next_wave(self):
         wave = self.exhaust_waves[0]
@@ -1052,6 +799,7 @@ def battle_interface(mainobj: "MainObj") -> result:
                     allies=[Ally(name, cls) for name, cls in PICKED.items()],
                     control_set=mainobj,
                     highlighter=mainobj.highlighter,
+                    chili=100
                 )
 
                 _range = 20
