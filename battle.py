@@ -1,20 +1,21 @@
 from __future__ import annotations
 
 import random
-from abc import ABC, abstractmethod
-from collections.abc import Generator, Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Final, Protocol, Self, runtime_checkable
+from typing import TYPE_CHECKING, Final, Protocol, runtime_checkable
 
-from rich import print
 import rich.table
+from rich import print
+
+from allies import CLASSES_DICT
+from enemies import Enemy
 
 # import type: switch
 from help import help
-from allies import CLASSES_DICT
 from value_index import BIRDS_TABLE
 from view import View
-from enemies import Enemy
+
 
 class Table(rich.table.Table):
     def __enter__(self):
@@ -74,6 +75,7 @@ class Ally(View):
     def chili(self):
         self.bird.chili(self)
 
+
 class result(Enum):
     lost = auto()
     won = auto()
@@ -85,6 +87,7 @@ class result(Enum):
 class DummyControlSet:
     def control(self, name: str) -> Iterable[str]:
         return (name,)
+
 
 @runtime_checkable
 class SupportsControl(Protocol):
@@ -492,7 +495,9 @@ class Battlefield:
                     if target in self.units:
                         target = self.units[target]
 
-                        name = target.clsname if isinstance(target, Ally) else target.name
+                        name = (
+                            target.clsname if isinstance(target, Ally) else target.name
+                        )
 
                         with Table(title=f"Viewing stats of {name}") as table:
                             table.add_column("Name")
@@ -619,7 +624,7 @@ class Battlefield:
             allies.add_column("Effects")
 
             for ally in self.allied_units.values():
-                should_we_do_it = ally.clsname not  in self.played
+                should_we_do_it = ally.clsname not in self.played
 
                 if should_we_do_it:
                     string = f"[b]{ally.clsname}[/b]"
@@ -643,7 +648,7 @@ class Battlefield:
                     f"{enemy.hp}/{enemy.TOTAL_HP}",
                     ", ".join(enemy.effects),
                 )
-        
+
         with Table() as t:
             t.add_column("chili")
             t.add_row(f"{self.chili}%")
@@ -799,7 +804,7 @@ def battle_interface(mainobj: "MainObj") -> result:
                     allies=[Ally(name, cls) for name, cls in PICKED.items()],
                     control_set=mainobj,
                     highlighter=mainobj.highlighter,
-                    chili=100
+                    chili=100,
                 )
 
                 _range = 20

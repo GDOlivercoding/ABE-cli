@@ -170,6 +170,25 @@ VALUE_INDEX = {
                 "heal": 30
             }
         },
+        "bard": {
+            "attack": {
+                "damage": 160,
+                "stun_chance": 15
+            },
+            "passive": {
+                "main_heal": 10,
+                "side_heal": 5
+            }
+        },
+        "witch": {
+            "attack": {
+                "damage": 160
+            },
+            "passive": {
+                "attack": 20,
+                "health": 20
+            }
+        },
         "chili": {
             "heal": 35
         }
@@ -178,11 +197,54 @@ VALUE_INDEX = {
         "chili": {
             "damage": 150
         },
+        "pirate": {
+            "attack": {
+                "damage": 100
+            },
+            "passive": {
+                "buff": 25
+            }
+        },
+        "cannoneer": {
+            "attack": {
+                "damage": 30,
+                "slice": 3,
+                "debuff": 20
+            },
+            "passive": {
+                "eff": 80
+            }
+        },
+        "capt'n": {
+            "attack": {
+                "damage": 90
+            },
+            "passive": {
+                "deplete": 10,
+                "buff": 60
+            }
+        },
         "berserker": {
             "attack": {
                 "damage": 105
             },
             "support": {}
+        },
+        "sea-dog": {
+            "attack": {
+                "damage": 125
+            },
+            "passive": {}
+        },
+        "frost-savage": {
+            "attack": {
+                "damage": 90,
+                "bonus": 150
+            },
+            "passive": {
+                "chance": 25,
+                "turns": 1
+            }
         }
     },
     "blues": {

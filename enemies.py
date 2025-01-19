@@ -7,6 +7,7 @@ from typing import Final
 from effects import Effect
 from view import View
 
+
 class Pig:
     can_chili = False
     name = "Pig"
@@ -16,6 +17,7 @@ class Pig:
 
 
 pig = Pig()
+
 
 class Enemy(View):
     """
@@ -48,5 +50,6 @@ class Enemy(View):
         # always attack the lowest health target
         self.current_target = min(self.battle.allied_units.values(), key=lambda x: x.hp)
 
+
 class Brute(Enemy):
-    """A category with high health, damage and charging """
+    """A category with high health, damage and charging"""

@@ -5,20 +5,27 @@ import random
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, Self, overload
 
 # import type: output only ->
 from effects import (
     Ambush,
     AncestralProtection,
+    Counter,
+    DamageBuff,
     DamageDebuff,
     Devotion,
     Effect,
     Energize,
     ForceTarget,
+    FreezeBarrier,
+    GangUp,
+    GiantGrownth,
+    Healing,
     HealingShield,
     Knock,
     LifeDrain,
+    LifeSteal,
     LinkedHeal,
     Mirror,
     Shield,
@@ -55,6 +62,9 @@ class DamageObject:
     def __int__(self):
         return self.damage
 
+    def __mod__(self, other) -> Self:
+        return type(self)(self.damage, other)
+
 
 def get_chance(chance: int) -> bool:
     if chance > 100 or chance < 0:
@@ -72,7 +82,10 @@ HP: dict = json.load(data_dir.joinpath("HP.json").open("r"))
 general: dict = json.load(data_dir.joinpath("general.json").open("r"))
 
 xp = general.get("xp", 0)
-scale = general.get("scale", 50)
+scale = general.get("level_scale")
+
+if scale is None:
+    raise KeyError("level_scale")
 
 level = 0
 
@@ -362,12 +375,17 @@ def Holy_Strike(atk: Attack, self: Ally, target: Enemy):
         self.heal(actual_heal)
     else:
         # fixed: the heal should be based percentage wise
-        heal_target = min(self.battle.allied_units.values(), key=lambda unit: unit.hp / (unit.TOTAL_HP / 100))
+        heal_target = min(
+            self.battle.allied_units.values(),
+            key=lambda unit: unit.hp / (unit.TOTAL_HP / 100),
+        )
         heal_target.heal(actual_heal)
 
 
 def _Devotion(sprt: Support, self: Ally, target: Ally):
-    target.add_pos_effects(sprt.sbm(Devotion, turns=3, protector=self, effectiveness=40))
+    target.add_pos_effects(
+        sprt.sbm(Devotion, turns=3, protector=self, effectiveness=40)
+    )
 
 
 def Feral_Assault(atk: Attack, self: Ally, target: Enemy):
@@ -405,7 +423,6 @@ def Ancestral_Protection(sprt: Support, self: Ally, target: Enemy):
 
 
 def Storm(atk: Attack, self: Ally, target: Enemy):
-    
     damage = chuck % atk.damage
 
     for enemy in self.battle.enemy_units.values():
@@ -421,7 +438,6 @@ def Shock_Shield(sprt: Support, self: Ally, target: Ally):
 
 
 def Energy_Drain(atk: Attack, self: Ally, target: Enemy):
-    
     damage = chuck % atk.damage
     chance = atk.dispell_chance
 
@@ -441,7 +457,6 @@ def Lightning_Fast(sprt: Support, self: Ally, target: Ally):
 
 
 def Acid_Rain(atk: Attack, self: Ally, target: Enemy):
-    
     damage = chuck % atk.damage
     poison = chuck % atk.poison
 
@@ -690,8 +705,78 @@ def Spirit_Link(sprt: Support, self: Ally, target: Ally):
     target.add_pos_effects(effect)
 
 
+def Heavy_Metal(atk: Attack, self: Ally, target: Enemy):
+    damage = matilda % atk.damage
+    stun_chance = atk.stun_chance
+
+    effects = []
+    if get_chance(stun_chance):
+        effects.append(atk.sbm(Knock, turns=1))
+
+    target.deal_damage(damage, self, effects)
+
+
+def Soothing_Song(sprt: Support, self: Ally, target: Ally):
+    main_heal = PercDmgObject(self.TOTAL_HP) % sprt.main_heal
+    side_heal = PercDmgObject(self.TOTAL_HP) % sprt.side_heal
+
+    for ally in self.battle.allied_units.values():
+        if ally.is_same(target):
+            ally.add_pos_effects(sprt.sbm(Healing, healing=main_heal, turns=3))
+            continue
+
+        ally.add_pos_effects(sprt.sbm(Healing, healing=side_heal, turns=3))
+
+
+def Sinister_Smite(atk: Attack, self: Ally, target: Enemy):
+    damage = matilda % atk.damage
+
+    effects = [
+        atk.sbm(
+            LifeSteal,
+            steal_target=self,
+            damage=lambda ally, enemy: damage % 15,
+            heal=lambda ally, enemy, damage: damage,
+        )
+    ]
+
+    target.deal_damage(damage, self, effects)
+
+
+def Giant_Growth(sprt: Support, self: Ally, target: Ally):
+    attack_boost = sprt.attack
+    health_boost = sprt.health
+
+    target.add_pos_effects(
+        sprt.sbm(GiantGrownth, effectiveness=attack_boost, health_boost=health_boost)
+    )
+
+
 # quick bomb
 
+
+def Pummel(atk: Attack, self: Ally, target: Enemy):
+    target.deal_damage(bomb % atk.damage, self)
+
+
+def pirate_support(sprt: Support, self: Ally, target: Ally):
+    buff = sprt.buff
+    for ally in self.battle.allied_units.values():
+        ally.add_pos_effects(sprt.sbm(DamageBuff, effectiveness=buff))
+
+
+def Cover_Fire(atk: Attack, self: Ally, target: Enemy):
+    damage = bomb % atk.damage
+    slice = atk.slice
+    debuff = atk.debuff
+
+    for i in range(slice):
+        target.deal_damage(
+            damage, self, effects=(atk.sbm(DamageDebuff, effectiveness=debuff, turns=2),)
+        )
+
+def _Counter(sprt: Support, self: Ally, target: Ally):
+    target.add_pos_effects(sprt.sbm(Counter, turns=3, effectiveness=sprt.eff))
 
 def Enrage(atk: Attack, self: Ally, target: Enemy):
     damage = bomb % atk.damage
@@ -712,6 +797,45 @@ def Frenzy(sprt: Support, self: Ally, target: Ally):
     for enemy in self.battle.enemy_units.values():
         enemy.deal_damage(damage, self, direct=True)
 
+def Raid(atk: Attack, self: Ally, target: Enemy):
+    target.dispell()
+    target.deal_damage(bomb % atk.damage, self)
+
+def Whip_Up(sprt: Support, self: Ally, target: Ally):
+    deplete = PercDmgObject(target.TOTAL_HP) % 10
+
+    target.hp -= int(deplete)
+    target.add_pos_effects(sprt.sbm(DamageBuff, turns=3, effectiveness=sprt.buff))
+
+def Hulk_Smash(atk: Attack, self: Ally, target: Enemy):
+    damage = int(bomb % atk.damage)
+
+    damage = damage * ((100 - (self.hp / self.TOTAL_HP)))
+
+    target.deal_damage(damage, self)
+
+def Gang_Up(sprt: Support, self: Ally, target: Ally):
+    target.add_pos_effects(sprt.sbm(GangUp, turns=2, bonus_attacker=self))
+
+def Frost_Strike(atk: Attack, self: Ally, target: Enemy):
+    damage = bomb % atk.damage
+    bonus = atk.bonus
+
+    target = target.get_target(self) # type: ignore
+
+    if any(effect.is_knocked for effect in target.effects.values()):
+        damage = damage % bonus
+
+    target.deal_damage(damage, self, direct=True)
+
+def Freezing_Barrier(sprt: Support, self: Ally, target: Ally):
+    for ally in self.battle.allied_units.values():
+        ally.add_pos_effects(sprt.sbm(
+            FreezeBarrier, 
+            turns=3, 
+            freeze_chance=sprt.chance,
+            freeze_turns=sprt.turns
+        ))
 
 # quick jay jake and jim (?)
 
@@ -763,13 +887,13 @@ def Speed_Of_Light(chili: Chili, self: Ally):
         except IndexError:
             c = 0
             get = id_list[c]
-        
+
         unit = ally_dict[get]
 
         try:
             battle.allied_units[unit.clsname]
         except KeyError:
-            return # once an ally dies, the chili gets cancelled
+            return  # once an ally dies, the chili gets cancelled
 
         unit._attack(
             unit, random.choice([*battle.enemy_units.values()]), flags=(FLAG.super_atk,)
@@ -858,6 +982,8 @@ Matilda = BirdCollection(
     BirdClass(attack=Healing_Strike, support=Healing_Shield, classname="cleric"),
     BirdClass(attack=Thorny_Vine, support=Regrownth, classname="druid"),
     BirdClass(attack=Royal_Order, support=Royal_Aid, classname="princess"),
+    BirdClass(attack=Heavy_Metal, support=Soothing_Song, classname="bard"),
+    BirdClass(attack=Sinister_Smite, support=Giant_Growth, classname="witch"),
     birdname="matilda",
     chili=matilda_chili,
 )
@@ -865,10 +991,17 @@ Matilda = BirdCollection(
 Matilda.chili.name = "Matilda's Medicine"
 
 Bomb = BirdCollection(
+    BirdClass(attack=Pummel, support=pirate_support, classname="pirate"),
+    BirdClass(attack=Cover_Fire, support=_Counter, classname="cannoneer"),
     BirdClass(attack=Enrage, support=Frenzy, classname="berserker"),
+    BirdClass(attack=Raid, support=Whip_Up, classname="capt'n"),
+    BirdClass(attack=Hulk_Smash, support=Gang_Up, classname="sea-dog"),
+    BirdClass(attack=Frost_Strike, support=Freezing_Barrier, classname="frost-savage"),
     chili=Explode,
     birdname="bomb",
 )
+
+Bomb.classes["pirate"].support.name = "Arrr!"
 
 Blues = BirdCollection(
     BirdClass(attack=Volley, support=_Ambush, classname="marksmen"),

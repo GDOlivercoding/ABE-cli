@@ -5,6 +5,8 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
+from battle import View
+
 # import type: output only
 
 if TYPE_CHECKING:
@@ -622,3 +624,92 @@ class LinkedHeal(PosEffect):
             for enemy in target.battle.enemy_units.values():
                 self.lock = True
                 enemy.heal(heal)
+
+
+@dataclass
+class LifeSteal(NegEffect):
+    steal_target: View
+    damage: Callable[[View, View], ConvertibleToInt]
+    heal: Callable[[View, View, int], ConvertibleToInt]
+
+    # damage dealt at the end of the inflictor's turn
+    def enemies_end_of_turn(self):
+        if not self.wearer.is_ally:
+            return
+
+        damage = self.damage(self.steal_target, self.wearer)
+
+        _, _, damage, _ = self.wearer.deal_damage(damage, self.wearer, direct=True)
+
+        heal = self.heal(self.steal_target, self.wearer, damage)
+
+        self.steal_target.heal(heal)
+
+    def allies_end_of_turn(self):
+        if self.wearer.is_ally:
+            return
+
+        damage = self.damage(self.steal_target, self.wearer)
+
+        _, _, damage, _ = self.wearer.deal_damage(damage, self.wearer, direct=True)
+
+        heal = self.heal(self.steal_target, self.wearer, damage)
+
+        self.steal_target.heal(heal)
+
+
+@dataclass
+class GiantGrownth(DamageBuff):
+    health_boost: int
+
+    def on_enter(self):
+        wearer = self.wearer
+        health_boost = self.health_boost
+        TOTAL_HP = wearer.TOTAL_HP
+
+        perc1 = TOTAL_HP // 100
+        boost = perc1 * health_boost
+
+        self.boost = boost
+        wearer.TOTAL_HP += boost
+        wearer.hp += boost
+
+    def on_exit(self):
+        wearer = self.wearer
+
+        wearer.TOTAL_HP -= self.boost
+        wearer.hp = wearer.hp # this ensures that the hp doesnt temporarily break the cap
+
+@dataclass
+class Counter(PosEffect):
+    effectiveness: int
+
+    def after_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]) -> None:
+        if not victim.is_same(self.wearer):
+            return
+        
+        get = victim._attack.get() # type: ignore
+        get.damage = (get.damage // 100) * self.effectiveness
+        victim._attack.send(get) # type: ignore
+
+@dataclass
+class GangUp(PosEffect):
+    bonus_attacker: View
+
+    def after_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]) -> None:
+        if not attacker.is_same(self.wearer):
+            return
+        
+        self.bonus_attacker.attack(victim) # type: ignore
+
+@dataclass
+class FreezeBarrier(PosEffect):
+    freeze_chance: int
+    freeze_turns: int
+
+    def after_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]) -> None:
+        if not victim.is_same(self.wearer):
+            return
+        
+        if get_chance(self.freeze_chance):
+            attacker.add_neg_effects(Freeze(name=self.name, turns=self.freeze_turns))

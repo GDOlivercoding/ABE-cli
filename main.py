@@ -5,10 +5,9 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import typer
-
 # import type: input only
-from battle import battle_interface, result as res
+from battle import battle_interface
+from battle import result as res
 from controls import controls_interface
 
 highlighters: dict[str, Callable[[str], str]] = {
@@ -70,7 +69,7 @@ class MainObj:
 
     def control(self, name: str) -> Iterable[str]:
         return self.jsons["controls"].content.get(name, [name])
-    
+
     def tabulate_xp(self, xp: int | None = None, scale: int | None = None):
         if xp is None:
             xp = self.xp
@@ -89,8 +88,6 @@ class MainObj:
             break
 
         self.xp = xp
-
-
 
 
 mainobj = MainObj()

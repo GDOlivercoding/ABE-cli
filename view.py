@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Sequence
 from typing import TYPE_CHECKING, Protocol, Self
@@ -7,8 +8,10 @@ if TYPE_CHECKING:
     from battle import Battlefield
     from effects import Effect
 
+
 class ConvertibleToInt(Protocol):
     def __int__(self) -> int: ...
+
 
 class View(ABC):
     @abstractmethod
@@ -94,10 +97,10 @@ class View(ABC):
         """
 
         damage = int(damage)
-        #print(
+        # print(
         #    f"{source.name} tries to attack {self.name}!"
         #    f"\ndamage={damage}, effects={', '.join(effect.name for effect in effects)}"
-        #)
+        # )
 
         target = self if direct else self.get_target(source)
 
@@ -107,17 +110,17 @@ class View(ABC):
                     target, source, damage, effects
                 )
 
-        #print(
+        # print(
         #    f"new: damage={damage}, effects={', '.join(effect.name for effect in effects)}"
-        #)
+        # )
 
-        #print(f"old: {self.battle.chili=}, {target.hp=}")
+        # print(f"old: {self.battle.chili=}, {target.hp=}")
         self.battle.chili += 5
         target.hp -= damage
-        #print(f"new: {self.battle.chili=}, {target.hp=}")
+        # print(f"new: {self.battle.chili=}, {target.hp=}")
 
         effects = list(target.add_neg_effects(*effects))
-        #print(f"actual effects: {', '.join(effect.name for effect in effects)}\n")
+        # print(f"actual effects: {', '.join(effect.name for effect in effects)}\n")
 
         for effect_vals in [eff.effects.values() for eff in self.battle.units.values()]:
             for effect in effect_vals:
@@ -127,17 +130,17 @@ class View(ABC):
 
     def heal(self, heal: ConvertibleToInt):
         heal = int(heal)
-        #print(f"An unknown source tries to heal {self.name}, heal={heal}")
+        # print(f"An unknown source tries to heal {self.name}, heal={heal}")
         target = self
         for effect_vals in [eff.effects.values() for eff in self.battle.units.values()]:
             for effect in effect_vals:
                 heal = effect.on_heal(target=target, heal=heal)
 
-        #print(f"Actual heal: {heal}")
+        # print(f"Actual heal: {heal}")
 
-        #print(f"old: {target.hp=}")
+        # print(f"old: {target.hp=}")
         target.hp += heal
-        #print(f"new: {target.hp=}")
+        # print(f"new: {target.hp=}")
 
         for effect_vals in [eff.effects.values() for eff in self.battle.units.values()]:
             for effect in effect_vals:
@@ -169,7 +172,7 @@ class View(ABC):
             return  # cannot add neg effects to immune target
 
         for effect in effects:
-            if effect.is_pos:
+            if effect.is_pos is True:
                 raise ValueError(
                     f"Cannot add positive effect '{effect.__class__.__name__}'"
                 )
@@ -190,9 +193,9 @@ class View(ABC):
             self.neg_effects[effect.name] = effect
             effect.on_enter()
 
-    def add_pos_effects(self, *effects: Effect):
+    def add_pos_effects(self, *effects: Effect) -> Generator[Effect, None, None]:
         for effect in effects:
-            if not effect.is_pos:
+            if effect.is_pos is False:
                 raise ValueError(
                     f"Cannot add negative effect '{effect.__class__.__name__}'"
                 )
@@ -200,7 +203,7 @@ class View(ABC):
             to_delete = []
 
             for _effect in self.pos_effects.values():
-                if type(effect) is type(_effect):
+                if type(effect) == type(_effect):
                     to_delete.append(_effect.name)
 
             for name in to_delete:
@@ -208,6 +211,7 @@ class View(ABC):
 
             effect.wearer = self
             effect.is_pos = True  # if its an undefined effect
+            yield effect
 
             self.pos_effects[effect.name] = effect
             effect.on_enter()
