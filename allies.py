@@ -772,11 +772,15 @@ def Cover_Fire(atk: Attack, self: Ally, target: Enemy):
 
     for i in range(slice):
         target.deal_damage(
-            damage, self, effects=(atk.sbm(DamageDebuff, effectiveness=debuff, turns=2),)
+            damage,
+            self,
+            effects=(atk.sbm(DamageDebuff, effectiveness=debuff, turns=2),),
         )
+
 
 def _Counter(sprt: Support, self: Ally, target: Ally):
     target.add_pos_effects(sprt.sbm(Counter, turns=3, effectiveness=sprt.eff))
+
 
 def Enrage(atk: Attack, self: Ally, target: Enemy):
     damage = bomb % atk.damage
@@ -797,9 +801,11 @@ def Frenzy(sprt: Support, self: Ally, target: Ally):
     for enemy in self.battle.enemy_units.values():
         enemy.deal_damage(damage, self, direct=True)
 
+
 def Raid(atk: Attack, self: Ally, target: Enemy):
     target.dispell()
     target.deal_damage(bomb % atk.damage, self)
+
 
 def Whip_Up(sprt: Support, self: Ally, target: Ally):
     deplete = PercDmgObject(target.TOTAL_HP) % 10
@@ -807,35 +813,42 @@ def Whip_Up(sprt: Support, self: Ally, target: Ally):
     target.hp -= int(deplete)
     target.add_pos_effects(sprt.sbm(DamageBuff, turns=3, effectiveness=sprt.buff))
 
+
 def Hulk_Smash(atk: Attack, self: Ally, target: Enemy):
     damage = int(bomb % atk.damage)
 
-    damage = damage * ((100 - (self.hp / self.TOTAL_HP)))
+    damage = damage * (100 - (self.hp / self.TOTAL_HP))
 
     target.deal_damage(damage, self)
 
+
 def Gang_Up(sprt: Support, self: Ally, target: Ally):
     target.add_pos_effects(sprt.sbm(GangUp, turns=2, bonus_attacker=self))
+
 
 def Frost_Strike(atk: Attack, self: Ally, target: Enemy):
     damage = bomb % atk.damage
     bonus = atk.bonus
 
-    target = target.get_target(self) # type: ignore
+    target = target.get_target(self)  # type: ignore
 
     if any(effect.is_knocked for effect in target.effects.values()):
         damage = damage % bonus
 
     target.deal_damage(damage, self, direct=True)
 
+
 def Freezing_Barrier(sprt: Support, self: Ally, target: Ally):
     for ally in self.battle.allied_units.values():
-        ally.add_pos_effects(sprt.sbm(
-            FreezeBarrier, 
-            turns=3, 
-            freeze_chance=sprt.chance,
-            freeze_turns=sprt.turns
-        ))
+        ally.add_pos_effects(
+            sprt.sbm(
+                FreezeBarrier,
+                turns=3,
+                freeze_chance=sprt.chance,
+                freeze_turns=sprt.turns,
+            )
+        )
+
 
 # quick jay jake and jim (?)
 

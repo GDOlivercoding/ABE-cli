@@ -678,38 +678,49 @@ class GiantGrownth(DamageBuff):
         wearer = self.wearer
 
         wearer.TOTAL_HP -= self.boost
-        wearer.hp = wearer.hp # this ensures that the hp doesnt temporarily break the cap
+        wearer.hp = (
+            wearer.hp
+        )  # this ensures that the hp doesnt temporarily break the cap
+
 
 @dataclass
 class Counter(PosEffect):
     effectiveness: int
 
-    def after_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]) -> None:
+    def after_hit(
+        self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
+    ) -> None:
         if not victim.is_same(self.wearer):
             return
-        
-        get = victim._attack.get() # type: ignore
+
+        get = victim._attack.get()  # type: ignore
         get.damage = (get.damage // 100) * self.effectiveness
-        victim._attack.send(get) # type: ignore
+        victim._attack.send(get)  # type: ignore
+
 
 @dataclass
 class GangUp(PosEffect):
     bonus_attacker: View
 
-    def after_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]) -> None:
+    def after_hit(
+        self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
+    ) -> None:
         if not attacker.is_same(self.wearer):
             return
-        
-        self.bonus_attacker.attack(victim) # type: ignore
+
+        self.bonus_attacker.attack(victim)  # type: ignore
+
 
 @dataclass
 class FreezeBarrier(PosEffect):
     freeze_chance: int
     freeze_turns: int
 
-    def after_hit(self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]) -> None:
+    def after_hit(
+        self, victim: View, attacker: View, damage: int, effects: Sequence[Effect]
+    ) -> None:
         if not victim.is_same(self.wearer):
             return
-        
+
         if get_chance(self.freeze_chance):
             attacker.add_neg_effects(Freeze(name=self.name, turns=self.freeze_turns))
