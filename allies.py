@@ -142,10 +142,11 @@ class Ability:
     # i really wanna typehint Effect and also capture args, but only kwargs
     # but in the current type system, thats not possible
     def sbm[T: Effect](self, effect: type[T], **kwargs) -> T:
+        print(f"Submitted effect {effect.__name__} with name {self.name}")
         return effect(name=self.name, **kwargs)
 
     # subclasses should override this function (and super() call)
-    def __call__(self, birdself: "Ally", *args, flags: Sequence[FLAG] = ()) -> Any:
+    def __call__(self, birdself: Ally, *args, flags: Sequence[FLAG] = ()) -> Any:
         self.flags = flags
         self.ability(self, birdself, *args)
         birdself.battle.death_check()
@@ -211,8 +212,8 @@ class Attack(Ability):
         return super().send(new, birdself, target)
 
 
-class Support(Ability):
-    typ = "support"
+class Passive(Ability):
+    typ = "passive"
 
     def __call__(self, birdself: Ally, target: Ally, flags: Sequence[FLAG] = ()) -> Any:
         return super().__call__(birdself, target, flags=flags)
@@ -232,7 +233,7 @@ class Chili(Ability):
 class BirdClass:
     def __init__(self, attack: Callable, support: Callable, classname: str):
         self.attack = Attack(attack)
-        self.support = Support(support)
+        self.support = Passive(support)
         self.classname = classname
 
 
@@ -282,9 +283,9 @@ target: the enemy its attacking
 ######################
 
 support abilities should take
-(sprt: Attack, self: Ally, target: Enemy)
+(pas: Attack, self: Ally, target: Enemy)
 
-sprt: the Support object wrapping it, note, is passed positionally so name doesnt matter
+pas: the Support object wrapping it, note, is passed positionally so name doesnt matter
 
 self: the bird using its support ability
 
@@ -310,10 +311,10 @@ def _Attack(atk: Attack, self: Ally, target: Enemy):
     print(f"{self.name} deals {int(damage)} hp to {target.name}!")
 
 
-def Protect(sprt: Support, self: Ally, target: Enemy):
+def Protect(pas: Passive, self: Ally, target: Enemy):
     """target ally gets a 55% damage shield for 2 turns"""
 
-    shield = sprt.sbm(Shield, effectiveness=55, turns=2)
+    shield = pas.sbm(Shield, effectiveness=55, turns=2)
 
     target.add_pos_effects(shield)
     print(f"{target.name} gets a 55% shield for 2 turns!")
@@ -325,9 +326,9 @@ def Overpower(atk: Attack, self: Ally, target: Enemy):
     target.deal_damage(damage, self, [atk.sbm(DamageDebuff, turns=2, effectiveness=25)])
 
 
-def Aura_Of_Fortitude(sprt: Support, self: Ally, target: Enemy):
+def Aura_Of_Fortitude(pas: Passive, self: Ally, target: Enemy):
     for ally in self.battle.allied_units.values():
-        ally.add_pos_effects(sprt.sbm(Shield, turns=4, effectiveness=25))
+        ally.add_pos_effects(pas.sbm(Shield, turns=4, effectiveness=25))
 
 
 def Dragon_Strike(atk: Attack, self: Ally, target: Enemy):
@@ -337,12 +338,12 @@ def Dragon_Strike(atk: Attack, self: Ally, target: Enemy):
         target.deal_damage(slice, self)
 
 
-def Defensive_Formation(sprt: Support, self: Ally, target: Enemy):
+def Defensive_Formation(pas: Passive, self: Ally, target: Enemy):
     for ally in self.battle.allied_units.values():
         if ally.is_same(target):
-            ally.add_pos_effects(sprt.sbm(Shield, turns=1, effectiveness=50))
+            ally.add_pos_effects(pas.sbm(Shield, turns=1, effectiveness=50))
             continue
-        ally.add_pos_effects(sprt.sbm(Shield, turns=1, effectiveness=40))
+        ally.add_pos_effects(pas.sbm(Shield, turns=1, effectiveness=40))
 
 
 def Revenge(atk: Attack, self: Ally, target: Enemy):
@@ -356,11 +357,11 @@ def Revenge(atk: Attack, self: Ally, target: Enemy):
 
 
 # cant make name here
-def avenger_support(sprt: Support, self: Ally, target: Enemy):
-    target.add_pos_effects(sprt.sbm(Shield, turns=2, effectiveness=20))
+def avenger_support(pas: Passive, self: Ally, target: Enemy):
+    target.add_pos_effects(pas.sbm(Shield, turns=2, effectiveness=20))
 
     for enemy in self.battle.enemy_units.values():
-        enemy.add_neg_effects(sprt.sbm(ForceTarget, turns=2, target=target))
+        enemy.add_neg_effects(pas.sbm(ForceTarget, turns=2, target=target))
 
 
 def Holy_Strike(atk: Attack, self: Ally, target: Enemy):
@@ -382,9 +383,9 @@ def Holy_Strike(atk: Attack, self: Ally, target: Enemy):
         heal_target.heal(actual_heal)
 
 
-def _Devotion(sprt: Support, self: Ally, target: Ally):
+def _Devotion(pas: Passive, self: Ally, target: Ally):
     target.add_pos_effects(
-        sprt.sbm(Devotion, turns=3, protector=self, effectiveness=40)
+        pas.sbm(Devotion, turns=3, protector=self, effectiveness=40)
     )
 
 
@@ -407,9 +408,9 @@ def Feral_Assault(atk: Attack, self: Ally, target: Enemy):
         new.deal_damage(damage, self, direct=True)
 
 
-def Ancestral_Protection(sprt: Support, self: Ally, target: Enemy):
+def Ancestral_Protection(pas: Passive, self: Ally, target: Enemy):
     target.add_pos_effects(
-        sprt.sbm(
+        pas.sbm(
             AncestralProtection, turns=3, damage_decrease=40, damage_decrease_turns=3
         )
     )
@@ -429,10 +430,10 @@ def Storm(atk: Attack, self: Ally, target: Enemy):
         enemy.deal_damage(damage, self, direct=True)
 
 
-def Shock_Shield(sprt: Support, self: Ally, target: Ally):
-    damage = chuck % sprt.damage
+def Shock_Shield(pas: Passive, self: Ally, target: Ally):
+    damage = chuck % pas.damage
 
-    effects = sprt.sbm(ShockShield, turns=3, damage=damage)
+    effects = pas.sbm(ShockShield, turns=3, damage=damage)
 
     target.add_pos_effects(effects)
 
@@ -448,7 +449,7 @@ def Energy_Drain(atk: Attack, self: Ally, target: Enemy):
         enemy.deal_damage(damage, self, direct=True)
 
 
-def Lightning_Fast(sprt: Support, self: Ally, target: Ally):
+def Lightning_Fast(pas: Passive, self: Ally, target: Ally):
     target._class.attack(
         target,
         random.choice((*self.battle.enemy_units.values(),)),
@@ -472,8 +473,8 @@ def Acid_Rain(atk: Attack, self: Ally, target: Enemy):
         )
 
 
-def Healing_Rain(sprt: Support, self: Ally, target: Ally):
-    heal = PercDmgObject(self.TOTAL_HP) % sprt.heal
+def Healing_Rain(pas: Passive, self: Ally, target: Ally):
+    heal = PercDmgObject(self.TOTAL_HP) % pas.heal
 
     target.cleanse()
 
@@ -567,13 +568,13 @@ def Chain_Lightning(atk: Attack, self: Ally, target: Enemy):
             pass
 
 
-def _Energize(sprt: Support, self: Ally, target: Ally):
+def _Energize(pas: Passive, self: Ally, target: Ally):
     target.add_pos_effects(
-        sprt.sbm(
+        pas.sbm(
             Energize,
             turns=3,
-            chili_boost=sprt.chili_boost,
-            stun_chance=sprt.stun_chance,
+            chili_boost=pas.chili_boost,
+            stun_chance=pas.stun_chance,
             stun_duration=3,
         )
     )
@@ -592,11 +593,11 @@ def Thunderclap(atk: Attack, self: Ally, target: Enemy):
         enemy.deal_damage(damage, self, direct=True)
 
 
-def Rage_Of_Thunder(sprt: Support, self: Ally, target: Ally):
-    damage = chuck % sprt.damage
+def Rage_Of_Thunder(pas: Passive, self: Ally, target: Ally):
+    damage = chuck % pas.damage
 
     for ally in self.battle.allied_units.values():
-        ally.add_pos_effects(sprt.sbm(ShockShield, turns=3, damage=damage))
+        ally.add_pos_effects(pas.sbm(ShockShield, turns=3, damage=damage))
 
 
 def Dancing_Spark(atk: Attack, self: Ally, target: Enemy):
@@ -607,9 +608,9 @@ def Dancing_Spark(atk: Attack, self: Ally, target: Enemy):
     target.deal_damage(damage, self, effects=(effect,))
 
 
-def Mirror_Image(sprt: Support, self: Ally, target: Ally):
+def Mirror_Image(pas: Passive, self: Ally, target: Ally):
     target.add_pos_effects(
-        sprt.sbm(Mirror, attack_damage_perc=sprt.super_atk_damage, turns=3)
+        pas.sbm(Mirror, attack_damage_perc=pas.super_atk_damage, turns=3)
     )
 
 
@@ -634,9 +635,9 @@ def Healing_Strike(atk: Attack, self: Ally, target: Enemy):
         ally.heal(actual_heal)
 
 
-def Healing_Shield(sprt: Support, self: Ally, target: Ally):
+def Healing_Shield(pas: Passive, self: Ally, target: Ally):
     for ally in self.battle.allied_units.values():
-        ally.add_pos_effects(sprt.sbm(HealingShield, turns=3, effectiveness=sprt.heal))
+        ally.add_pos_effects(pas.sbm(HealingShield, turns=3, effectiveness=pas.heal))
 
 
 def Thorny_Vine(atk: Attack, self: Ally, target: Enemy):
@@ -648,9 +649,9 @@ def Thorny_Vine(atk: Attack, self: Ally, target: Enemy):
     )
 
 
-def Regrownth(sprt: Support, self: Ally, target: Ally):
-    main = PercDmgObject(self.TOTAL_HP) % sprt.heal
-    others = PercDmgObject(self.TOTAL_HP) % sprt.others
+def Regrownth(pas: Passive, self: Ally, target: Ally):
+    main = PercDmgObject(self.TOTAL_HP) % pas.heal
+    others = PercDmgObject(self.TOTAL_HP) % pas.others
 
     target.heal(main)
 
@@ -674,8 +675,8 @@ def Royal_Order(atk: Attack, self: Ally, target: Enemy):
         )
 
 
-def Royal_Aid(sprt: Support, self: Ally, target: Ally):
-    heal = PercDmgObject(self.TOTAL_HP) % sprt.heal
+def Royal_Aid(pas: Passive, self: Ally, target: Ally):
+    heal = PercDmgObject(self.TOTAL_HP) % pas.heal
 
     target.cleanse()
     target.heal(heal)
@@ -695,8 +696,8 @@ def Angelic_Touch(atk: Attack, self: Ally, target: Enemy):
         )
 
 
-def Spirit_Link(sprt: Support, self: Ally, target: Ally):
-    effect = sprt.sbm(LinkedHeal, turns=3)
+def Spirit_Link(pas: Passive, self: Ally, target: Ally):
+    effect = pas.sbm(LinkedHeal, turns=3)
 
     if self.is_same(target):
         return  # pro self use fr
@@ -716,16 +717,16 @@ def Heavy_Metal(atk: Attack, self: Ally, target: Enemy):
     target.deal_damage(damage, self, effects)
 
 
-def Soothing_Song(sprt: Support, self: Ally, target: Ally):
-    main_heal = PercDmgObject(self.TOTAL_HP) % sprt.main_heal
-    side_heal = PercDmgObject(self.TOTAL_HP) % sprt.side_heal
+def Soothing_Song(pas: Passive, self: Ally, target: Ally):
+    main_heal = PercDmgObject(self.TOTAL_HP) % pas.main_heal
+    side_heal = PercDmgObject(self.TOTAL_HP) % pas.side_heal
 
     for ally in self.battle.allied_units.values():
         if ally.is_same(target):
-            ally.add_pos_effects(sprt.sbm(Healing, healing=main_heal, turns=3))
+            ally.add_pos_effects(pas.sbm(Healing, healing=main_heal, turns=3))
             continue
 
-        ally.add_pos_effects(sprt.sbm(Healing, healing=side_heal, turns=3))
+        ally.add_pos_effects(pas.sbm(Healing, healing=side_heal, turns=3))
 
 
 def Sinister_Smite(atk: Attack, self: Ally, target: Enemy):
@@ -743,12 +744,13 @@ def Sinister_Smite(atk: Attack, self: Ally, target: Enemy):
     target.deal_damage(damage, self, effects)
 
 
-def Giant_Growth(sprt: Support, self: Ally, target: Ally):
-    attack_boost = sprt.attack
-    health_boost = sprt.health
+def Giant_Growth(pas: Passive, self: Ally, target: Ally):
+    print("Passive ability call to witch")
+    attack_boost = pas.attack
+    health_boost = pas.health
 
     target.add_pos_effects(
-        sprt.sbm(GiantGrownth, effectiveness=attack_boost, health_boost=health_boost)
+        pas.sbm(GiantGrownth, effectiveness=attack_boost, health_boost=health_boost, turns=3)
     )
 
 
@@ -759,10 +761,10 @@ def Pummel(atk: Attack, self: Ally, target: Enemy):
     target.deal_damage(bomb % atk.damage, self)
 
 
-def pirate_support(sprt: Support, self: Ally, target: Ally):
-    buff = sprt.buff
+def pirate_support(pas: Passive, self: Ally, target: Ally):
+    buff = pas.buff
     for ally in self.battle.allied_units.values():
-        ally.add_pos_effects(sprt.sbm(DamageBuff, effectiveness=buff))
+        ally.add_pos_effects(pas.sbm(DamageBuff, effectiveness=buff))
 
 
 def Cover_Fire(atk: Attack, self: Ally, target: Enemy):
@@ -778,8 +780,8 @@ def Cover_Fire(atk: Attack, self: Ally, target: Enemy):
         )
 
 
-def _Counter(sprt: Support, self: Ally, target: Ally):
-    target.add_pos_effects(sprt.sbm(Counter, turns=3, effectiveness=sprt.eff))
+def _Counter(pas: Passive, self: Ally, target: Ally):
+    target.add_pos_effects(pas.sbm(Counter, turns=3, effectiveness=pas.eff))
 
 
 def Enrage(atk: Attack, self: Ally, target: Enemy):
@@ -792,7 +794,7 @@ def Enrage(atk: Attack, self: Ally, target: Enemy):
     target.deal_damage(damage, self)
 
 
-def Frenzy(sprt: Support, self: Ally, target: Ally):
+def Frenzy(pas: Passive, self: Ally, target: Ally):
     damage = PercDmgObject(target.TOTAL_HP) % 15
 
     # XXX might break things, but its really this direct
@@ -807,11 +809,11 @@ def Raid(atk: Attack, self: Ally, target: Enemy):
     target.deal_damage(bomb % atk.damage, self)
 
 
-def Whip_Up(sprt: Support, self: Ally, target: Ally):
+def Whip_Up(pas: Passive, self: Ally, target: Ally):
     deplete = PercDmgObject(target.TOTAL_HP) % 10
 
     target.hp -= int(deplete)
-    target.add_pos_effects(sprt.sbm(DamageBuff, turns=3, effectiveness=sprt.buff))
+    target.add_pos_effects(pas.sbm(DamageBuff, turns=3, effectiveness=pas.buff))
 
 
 def Hulk_Smash(atk: Attack, self: Ally, target: Enemy):
@@ -822,8 +824,8 @@ def Hulk_Smash(atk: Attack, self: Ally, target: Enemy):
     target.deal_damage(damage, self)
 
 
-def Gang_Up(sprt: Support, self: Ally, target: Ally):
-    target.add_pos_effects(sprt.sbm(GangUp, turns=2, bonus_attacker=self))
+def Gang_Up(pas: Passive, self: Ally, target: Ally):
+    target.add_pos_effects(pas.sbm(GangUp, turns=2, bonus_attacker=self))
 
 
 def Frost_Strike(atk: Attack, self: Ally, target: Enemy):
@@ -838,14 +840,14 @@ def Frost_Strike(atk: Attack, self: Ally, target: Enemy):
     target.deal_damage(damage, self, direct=True)
 
 
-def Freezing_Barrier(sprt: Support, self: Ally, target: Ally):
+def Freezing_Barrier(pas: Passive, self: Ally, target: Ally):
     for ally in self.battle.allied_units.values():
         ally.add_pos_effects(
-            sprt.sbm(
+            pas.sbm(
                 FreezeBarrier,
                 turns=3,
-                freeze_chance=sprt.chance,
-                freeze_turns=sprt.turns,
+                freeze_chance=pas.chance,
+                freeze_turns=pas.turns,
             )
         )
 
@@ -864,9 +866,9 @@ def Volley(atk: Attack, self: Ally, target: Enemy):
         )
 
 
-def _Ambush(sprt: Support, self: Ally, target: Ally):
+def _Ambush(pas: Passive, self: Ally, target: Ally):
     target.add_pos_effects(
-        sprt.sbm(Ambush, ambusher=self, turns=2, damage=lambda damage: int(damage / 2))
+        pas.sbm(Ambush, ambusher=self, turns=2, damage=lambda damage: int(damage / 2))
     )
 
 

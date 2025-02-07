@@ -193,7 +193,10 @@ class View(ABC):
             self.neg_effects[effect.name] = effect
             effect.on_enter()
 
-    def add_pos_effects(self, *effects: Effect) -> Generator[Effect, None, None]:
+    def add_pos_effects(self, *effects: Effect) -> list[Effect]:
+        print(f"called add pos effect with '{effects}'")
+        return_list = []
+
         for effect in effects:
             if effect.is_pos is False:
                 raise ValueError(
@@ -203,7 +206,7 @@ class View(ABC):
             to_delete = []
 
             for _effect in self.pos_effects.values():
-                if type(effect) == type(_effect):
+                if type(effect) is type(_effect):
                     to_delete.append(_effect.name)
 
             for name in to_delete:
@@ -211,10 +214,13 @@ class View(ABC):
 
             effect.wearer = self
             effect.is_pos = True  # if its an undefined effect
-            yield effect
+            return_list.append(effect)
 
             self.pos_effects[effect.name] = effect
+            print(f"calling on enter for class {effect.__class__.__name__}")
             effect.on_enter()
+
+        return return_list
 
     def is_dead(self) -> bool:
         return self.hp <= 0

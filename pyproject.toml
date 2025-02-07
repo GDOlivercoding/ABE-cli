@@ -41,7 +41,10 @@ select = [
 # UP037: remove quotes from type annotation
 # reason: i use forward references in my code
 
-ignore = ["UP037"]
+# E501: line too long
+# reason: ruff can't fix them
+
+ignore = ["E501"]
 
 fixable = ["ALL"]
 unfixable = []

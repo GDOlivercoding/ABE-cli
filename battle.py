@@ -666,7 +666,7 @@ class Battlefield:
         self.played = []
 
 
-def battle_interface(mainobj: "MainObj") -> result:
+def battle_interface(mainobj: MainObj) -> result:
     fp = mainobj.jsons["picked"]
 
     control = mainobj.control

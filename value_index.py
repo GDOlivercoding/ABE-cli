@@ -44,13 +44,13 @@ VALUE_INDEX = {
             "attack": {
                 "damage": 115
             },
-            "support": {}
+            "passive": {}
         },
         "guardian": {
             "attack": {
                 "damage": 110
             },
-            "support": {}
+            "passive": {}
         },
         "samurai": {
             "attack": {
@@ -62,14 +62,14 @@ VALUE_INDEX = {
             "attack": {
                 "damage": 90
             },
-            "support": {}
+            "passive": {}
         },
         "paladin": {
             "attack": {
                 "damage": 135,
                 "heal": 30
             },
-            "support": {}
+            "passive": {}
         },
         "stone guard": {
             "attack": {
@@ -87,7 +87,7 @@ VALUE_INDEX = {
             "attack": {
                 "damage": 55
             },
-            "support": {
+            "passive": {
                 "damage": 75
             }
         },
@@ -96,14 +96,14 @@ VALUE_INDEX = {
                 "damage": 45,
                 "dispell_chance": 65
             },
-            "support": {}
+            "passive": {}
         },
         "rainbird": {
             "attack": {
                 "damage": 20,
                 "poison": 35
             },
-            "support": {
+            "passive": {
                 "heal": 20
             }
         },
@@ -114,7 +114,7 @@ VALUE_INDEX = {
                 "damage2": 45,
                 "damage3": 30
             },
-            "support": {
+            "passive": {
                 "chili_boost": 5,
                 "stun_chance": 20
             }
@@ -124,7 +124,7 @@ VALUE_INDEX = {
                 "damage": 50,
                 "effectiveness": 25
             },
-            "support": {
+            "passive": {
                 "damage": 45
             }
         },
@@ -133,7 +133,7 @@ VALUE_INDEX = {
                 "damage": 100,
                 "shared_damage": 35
             },
-            "support": {
+            "passive": {
                 "super_atk_damage": 50
             }
         },
@@ -148,7 +148,7 @@ VALUE_INDEX = {
                 "damage": 110,
                 "heal": 25
             },
-            "support": {
+            "passive": {
                 "heal": 15
             }
         },
@@ -228,7 +228,7 @@ VALUE_INDEX = {
             "attack": {
                 "damage": 105
             },
-            "support": {}
+            "passive": {}
         },
         "sea-dog": {
             "attack": {
@@ -257,7 +257,7 @@ VALUE_INDEX = {
                 "slice": 2,
                 "weaken": 35
             },
-            "support": {}
+            "passive": {}
         }
     }
 }

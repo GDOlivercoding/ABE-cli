@@ -5,31 +5,10 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
-from battle import View
-
 # import type: output only
 
 if TYPE_CHECKING:
     from battle import Ally, ConvertibleToInt, View
-
-__all__ = [
-    "Shield",
-    "ForceTarget",
-    "ShockShield",
-    "ThornyShield",
-    "DamageBuff",
-    "DamageDebuff",
-    "Mimic",
-    "GooeyPoison",
-    "ThornyPoison",
-    "ToxicPoison",
-    "Healing",
-    "Knock",
-    "Freeze",
-    "Devotion",
-    "HealingShield",
-    "Immunity",
-]
 
 # a lot of return types for these effects may seems useless
 # first, they just mean the specified type without the typevar
@@ -58,18 +37,6 @@ class Effect[V: View, A: View]:
 
     `is_pos`: property[bool] = if this effect is a positive effect, positive effects can be dispelled and
     negative effects can be cleansed, (ex.: shield is positive, weaken is negative)
-
-    event methods:
-
-        on_hit(victim: V, attacker: A, damage: int, effects: Sequence[Effect])
-
-        manually triggered when the unit wearing this effects gets attacked
-        this is after `on_attack`, this should usually trigger effects only
-        when the unit actually gets hurt, for example, shield, counter..
-
-        on_attack(attacker: A, victim: V, damage: int, effects: Sequence[Effect])
-
-        triggered when this unit attacks, still in development because im dum
 
     """
 
@@ -608,22 +575,26 @@ class LifeDrain(NegEffect):
 @dataclass
 class LinkedHeal(PosEffect):
     def __post_init__(self):
-        self.lock = False
+        self._lock = False
 
     def on_heal(self, target: View, heal: int):
-        if self.lock:
-            self.lock = False
+        if self._lock:
+            self._lock = False
             return
 
         if target.is_ally:
             for ally in target.battle.allied_units.values():
-                self.lock = True
-                ally.heal(heal)
+                if (any(isinstance(inst, type(self)) for inst in ally.pos_effects.values()) 
+                    and not ally.is_same(self.wearer)):
+                    self._lock = True
+                    ally.heal(heal)
 
         else:
             for enemy in target.battle.enemy_units.values():
-                self.lock = True
-                enemy.heal(heal)
+                if (any(isinstance(inst, type(self)) for inst in enemy.pos_effects.values()) 
+                    and not enemy.is_same(self.wearer)):
+                    self._lock = True
+                    enemy.heal(heal)
 
 
 @dataclass
@@ -663,6 +634,7 @@ class GiantGrownth(DamageBuff):
     health_boost: int
 
     def on_enter(self):
+        print("on enter called")
         wearer = self.wearer
         health_boost = self.health_boost
         TOTAL_HP = wearer.TOTAL_HP
@@ -671,16 +643,19 @@ class GiantGrownth(DamageBuff):
         boost = perc1 * health_boost
 
         self.boost = boost
+        print("health before: total={0}, hp={1}".format(wearer.TOTAL_HP, wearer.hp))
         wearer.TOTAL_HP += boost
         wearer.hp += boost
+        print("health after: total={0}, hp={1}".format(wearer.TOTAL_HP, wearer.hp))
 
     def on_exit(self):
         wearer = self.wearer
 
         wearer.TOTAL_HP -= self.boost
-        wearer.hp = (
-            wearer.hp
-        )  # this ensures that the hp doesnt temporarily break the cap
+        wearer.hp = wearer.hp 
+        # this ensures that the hp doesnt temporarily break the cap
+
+    on_dispell = on_exit
 
 
 @dataclass
